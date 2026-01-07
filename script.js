@@ -1,15 +1,11 @@
 const CLIENT_ID = '445613530144-8nca3h64lackcrmkd3joge3cv7ir91uu.apps.googleusercontent.com';
-const DISCOVERY_DOCS = [
-    'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest',
-    'https://www.googleapis.com/discovery/v1/apis/tasks/v1/rest',
-    'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'
-];
+const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest','https://www.googleapis.com/discovery/v1/apis/tasks/v1/rest','https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'];
 const SCOPES = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/calendar.readonly';
 
 let tokenClient, gapiInited = false, cloudFileId = null;
 let db = JSON.parse(localStorage.getItem('escape_db')) || { stars: 0, tasks: [], amber: false };
 
-// --- AUDIO ENGINE (FIXED) ---
+// --- AUDIO ENGINE ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 let noiseSource = null, tickId = null;
 
@@ -22,16 +18,18 @@ function stopAudio() {
 function setAudio(type) {
     stopAudio();
     if (audioCtx.state === 'suspended') audioCtx.resume();
-    document.getElementById('a-'+type).classList.add('active');
+    
+    const btn = document.getElementById('a-'+type);
+    if(btn) btn.classList.add('active');
 
     if(type === 'tick') {
         tickId = setInterval(() => {
             const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
-            osc.frequency.setValueAtTime(900, audioCtx.currentTime);
-            g.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            g.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
             osc.connect(g); g.connect(audioCtx.destination);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.05);
         }, 1000);
     } else {
         const bufferSize = 2 * audioCtx.sampleRate, buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate), output = buffer.getChannelData(0);
@@ -42,22 +40,26 @@ function setAudio(type) {
                 output[i] = (lastOut + (0.02 * white)) / 1.02;
                 lastOut = output[i];
                 output[i] *= 3.5;
-            } else { output[i] = white * 0.15; }
+            } else { output[i] = white * 0.12; }
         }
         noiseSource = audioCtx.createBufferSource();
         noiseSource.buffer = buffer; noiseSource.loop = true;
-        const gainNode = audioCtx.createGain(); gainNode.gain.value = 0.5;
+        const gainNode = audioCtx.createGain(); gainNode.gain.value = 0.4;
         noiseSource.connect(gainNode); gainNode.connect(audioCtx.destination);
         noiseSource.start();
     }
 }
 
-// --- CLOUD SYNC LOGIC ---
+// --- GOOGLE & CORE ---
+const save = (upload = true) => {
+    localStorage.setItem('escape_db', JSON.stringify(db));
+    renderTasks(); renderSky();
+    if (upload && gapiInited && gapi.client.getToken()) uploadToCloud();
+};
+
 async function uploadToCloud() {
-    if (!gapiInited || !gapi.client.getToken()) return;
     const fileMetadata = { name: 'escape_config.json', parents: ['appDataFolder'] };
-    const content = JSON.stringify(db);
-    const boundary = 'foo_bar_baz', delimiter = "\r\n--" + boundary + "\r\n", close_delim = "\r\n--" + boundary + "--";
+    const content = JSON.stringify(db), boundary = 'foo_bar_baz', delimiter = "\r\n--" + boundary + "\r\n", close_delim = "\r\n--" + boundary + "--";
     let url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', method = 'POST';
     if (cloudFileId) { url = `https://www.googleapis.com/upload/drive/v3/files/${cloudFileId}?uploadType=multipart`; method = 'PATCH'; }
     const body = delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(fileMetadata) + delimiter + 'Content-Type: application/json\r\n\r\n' + content + close_delim;
@@ -90,13 +92,6 @@ async function syncGoogleServices() {
     } catch (e) { console.error(e); }
 }
 
-// --- CORE UTILITIES ---
-const save = (upload = true) => {
-    localStorage.setItem('escape_db', JSON.stringify(db));
-    renderTasks(); renderSky();
-    if (upload) uploadToCloud();
-};
-
 function handleAuthClick() { tokenClient.requestAccessToken({prompt: 'consent'}); }
 function handleSignoutClick() { 
     const token = gapi.client.getToken();
@@ -109,8 +104,7 @@ function gsiLoaded() {
         client_id: CLIENT_ID, scope: SCOPES,
         callback: async (resp) => {
             document.getElementById('auth-screen').style.display = 'none';
-            await downloadFromCloud();
-            await syncGoogleServices();
+            await downloadFromCloud(); await syncGoogleServices();
         },
     });
 }
@@ -132,6 +126,7 @@ function toggleTimer() {
     if(running) { clearInterval(timerInterval); running = false; document.getElementById('main-btn').innerText = "Resume Flow"; }
     else {
         running = true; document.getElementById('main-btn').innerText = "Stay Focused";
+        if (audioCtx.state === 'suspended') audioCtx.resume();
         timerInterval = setInterval(() => {
             timeLeft--; updateUI();
             if(timeLeft <= 0) { clearInterval(timerInterval); db.stars++; save(); setTimer(totalTime); }
@@ -153,7 +148,7 @@ function renderTasks() {
     document.getElementById('task-list').innerHTML = db.tasks.map(t => `
         <div class="glass p-6 flex justify-between items-center" ondblclick="burnTask(this, ${t.id})">
             <span class="font-light ${t.done?'opacity-20 line-through':''}">${t.text}</span>
-            <button onclick="toggleTask(${t.id})"><i data-lucide="${t.done?'rotate-ccw':'check'}" class="w-4 opacity-40"></i></button>
+            <button onclick="toggleTask(${t.id})"><i data-lucide="${t.done?'rotate-ccw':'check'}" class="w-4 opacity-40 pointer-events-none"></i></button>
         </div>
     `).join('');
     lucide.createIcons();
@@ -169,7 +164,8 @@ function startZen() {
 }
 
 function renderSky() {
-    const sky = document.getElementById('universe-sky'); sky.innerHTML = '';
+    const sky = document.getElementById('universe-sky'); if(!sky) return;
+    sky.innerHTML = '';
     for(let i=0; i<db.stars; i++) {
         const s = document.createElement('div'); s.className = 'star';
         s.style.width = s.style.height = (Math.random()*2+1)+'px';
@@ -185,5 +181,5 @@ function toggleAmber(c) { db.amber = c; document.getElementById('amber-overlay')
 window.onload = () => { 
     gapiLoaded(); gsiLoaded();
     if(db.amber) { document.getElementById('amber-check').checked = true; toggleAmber(true); } 
-    save(false); updateUI(); lucide.createIcons();
+    renderTasks(); updateUI(); lucide.createIcons();
 };
