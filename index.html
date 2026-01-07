@@ -3,96 +3,157 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Project Escape | Final Build</title>
+    <title>Project Escape | Locked In</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;400;700&family=Inter:wght@300;600&display=swap" rel="stylesheet">
+    
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
+    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="amber-overlay"></div>
 
-    <div id="auth-screen" class="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-8 text-center">
-        <h1 class="text-[10px] tracking-[1em] uppercase opacity-40 mb-12">Initialize Escape</h1>
-        <button onclick="handleAuthClick()" class="glass px-10 py-5 text-[10px] uppercase tracking-[0.3em] flex items-center gap-3">
-            <i data-lucide="log-in" class="w-4"></i> Sync Google Account
+    <header class="fixed top-0 w-full h-16 flex justify-between items-center px-6 z-50 transition-opacity duration-500" id="main-header">
+        <button onclick="handleProfileClick()" class="relative group">
+            <div id="profile-img" class="w-8 h-8 rounded-full bg-white/10 border border-white/20 overflow-hidden flex items-center justify-center transition hover:border-white">
+                <i data-lucide="user" class="w-4 h-4 opacity-50"></i>
+            </div>
+            <span id="login-status" class="absolute left-10 top-2 text-[9px] uppercase tracking-widest opacity-0 group-hover:opacity-50 transition">Guest</span>
         </button>
-    </div>
+        <button onclick="toggleFullscreen()" class="opacity-40 hover:opacity-100 transition">
+            <i data-lucide="expand" class="w-5 h-5"></i>
+        </button>
+    </header>
 
-    <nav class="fixed bottom-0 w-full h-24 bg-black/95 backdrop-blur-3xl border-t border-white/5 flex justify-around items-center z-50 px-4 pb-4">
+    <nav class="fixed bottom-0 w-full h-20 bg-black/80 backdrop-blur-xl border-t border-white/5 flex justify-around items-center z-50 px-4 pb-2 transition-transform duration-500" id="main-nav">
         <button onclick="show('focus')" class="nav-item active" id="n-focus"><i data-lucide="timer"></i></button>
-        <button onclick="show('tasks')" class="nav-item" id="n-tasks"><i data-lucide="flame"></i></button>
+        <button onclick="show('tasks')" class="nav-item" id="n-tasks"><i data-lucide="check-square"></i></button>
         <button onclick="show('zen')" class="nav-item" id="n-zen"><i data-lucide="wind"></i></button>
-        <button onclick="show('map')" class="nav-item" id="n-map"><i data-lucide="map"></i></button>
-        <button onclick="show('settings')" class="nav-item" id="n-settings"><i data-lucide="settings"></i></button>
+        <button onclick="show('stats')" class="nav-item" id="n-stats"><i data-lucide="bar-chart-2"></i></button>
     </nav>
 
-    <section id="focus" class="view active px-8 pt-10">
-        <div class="text-center mb-4">
-            <h1 class="text-[10px] tracking-[0.5em] uppercase opacity-30">The Void</h1>
-            <p id="next-event" class="text-[8px] uppercase tracking-widest text-white/40 mt-2 h-4"></p>
-        </div>
-        <div class="relative w-64 h-64 mx-auto flex items-center justify-center mb-10">
-            <svg class="absolute inset-0 w-full h-full -rotate-90">
-                <circle cx="128" cy="128" r="120" stroke="rgba(255,255,255,0.05)" stroke-width="1" fill="none"/>
-                <circle id="progress" cx="128" cy="128" r="120" stroke="white" stroke-width="2" fill="none" stroke-dasharray="754" stroke-dashoffset="754" stroke-linecap="round"/>
-            </svg>
-            <div id="timer-display" class="text-6xl font-extralight tracking-widest">25:00</div>
-        </div>
-        <div class="space-y-6">
-            <div class="grid grid-cols-3 gap-3">
-                <button onclick="setTimer(1500)" class="glass py-4 text-[10px] uppercase">25m</button>
-                <button onclick="setTimer(3000)" class="glass py-4 text-[10px] uppercase">50m</button>
-                <button onclick="toggleSlider()" class="glass py-4 text-[10px] uppercase">Custom</button>
-            </div>
-            <div id="slider-box" class="hidden glass p-6">
-                <input type="range" min="1" max="180" value="25" class="w-full" oninput="updateCustom(this.value)">
-                <p class="text-center mt-4 text-[10px] uppercase opacity-40"><span id="custom-val">25</span> Minutes</p>
-            </div>
-            <button onclick="toggleTimer()" id="main-btn" class="w-full py-5 bg-white text-black font-bold uppercase tracking-[0.4em] text-xs rounded-full">Enter Flow</button>
+    <section id="focus" class="view active px-8 flex flex-col justify-center">
+        <div id="timer-settings" class="hidden absolute inset-0 z-40 bg-black/95 backdrop-blur-xl flex flex-col p-8 justify-center space-y-8">
+            <h2 class="text-xs tracking-[0.4em] uppercase opacity-40 text-center">Timer Configuration</h2>
             
-            <div class="glass p-2 flex justify-between items-center px-4 h-16">
-                <button onclick="setAudio('white')" id="a-white" class="sound-btn"><i data-lucide="cloud" class="pointer-events-none"></i></button>
-                <button onclick="setAudio('brown')" id="a-brown" class="sound-btn"><i data-lucide="waves" class="pointer-events-none"></i></button>
-                <button onclick="setAudio('tick')" id="a-tick" class="sound-btn"><i data-lucide="watch" class="pointer-events-none"></i></button>
-                <button onclick="stopAudio()" class="sound-btn text-white/20 hover:text-white"><i data-lucide="volume-x" class="pointer-events-none"></i></button>
+            <div class="space-y-2">
+                <label class="text-[10px] uppercase opacity-60">Focus Duration (min)</label>
+                <input type="range" id="cfg-focus" min="5" max="90" value="25" class="w-full" oninput="updateConfigUI()">
+                <div class="text-right text-xs font-mono" id="val-focus">25m</div>
+            </div>
+
+            <div class="space-y-2">
+                <label class="text-[10px] uppercase opacity-60">Short Break (min)</label>
+                <input type="range" id="cfg-short" min="1" max="15" value="5" class="w-full" oninput="updateConfigUI()">
+                <div class="text-right text-xs font-mono" id="val-short">5m</div>
+            </div>
+
+            <div class="space-y-2">
+                <label class="text-[10px] uppercase opacity-60">Long Break (min)</label>
+                <input type="range" id="cfg-long" min="10" max="45" value="15" class="w-full" oninput="updateConfigUI()">
+                <div class="text-right text-xs font-mono" id="val-long">15m</div>
+            </div>
+
+            <button onclick="toggleTimerSettings()" class="w-full py-4 glass text-[10px] uppercase tracking-widest hover:bg-white/10">Save & Close</button>
+        </div>
+
+        <div class="relative w-72 h-72 mx-auto flex items-center justify-center mb-8">
+            <svg class="absolute inset-0 w-full h-full -rotate-90">
+                <circle cx="144" cy="144" r="135" stroke="rgba(255,255,255,0.05)" stroke-width="1" fill="none"/>
+                <circle id="progress" cx="144" cy="144" r="135" stroke="white" stroke-width="2" fill="none" stroke-dasharray="848" stroke-dashoffset="848" stroke-linecap="round"/>
+            </svg>
+            <div class="flex flex-col items-center">
+                <div id="timer-display" class="text-7xl font-mono font-thin tracking-tighter">25:00</div>
+                <div id="session-type" class="text-[9px] uppercase tracking-[0.3em] opacity-30 mt-2">Deep Work</div>
+            </div>
+            <button onclick="toggleTimerSettings()" class="absolute bottom-10 right-10 opacity-20 hover:opacity-100 transition p-2"><i data-lucide="sliders-horizontal" class="w-4"></i></button>
+        </div>
+
+        <div class="space-y-6 max-w-sm mx-auto w-full">
+            <button onclick="toggleTimer()" id="main-btn" class="w-full py-5 bg-white text-black font-bold uppercase tracking-[0.4em] text-xs rounded-full hover:scale-[1.02] transition">Initialize Flow</button>
+            
+            <div class="glass p-2 flex justify-between items-center px-6 h-16">
+                <button onclick="setAudio('white')" id="a-white" class="sound-btn"><i data-lucide="cloud" class="pointer-events-none w-5"></i></button>
+                <button onclick="setAudio('brown')" id="a-brown" class="sound-btn"><i data-lucide="waves" class="pointer-events-none w-5"></i></button>
+                <button onclick="setAudio('tick')" id="a-tick" class="sound-btn"><i data-lucide="watch" class="pointer-events-none w-5"></i></button>
+                <button onclick="stopAudio()" class="sound-btn text-white/20 hover:text-white"><i data-lucide="volume-x" class="pointer-events-none w-5"></i></button>
             </div>
         </div>
     </section>
 
-    <section id="tasks" class="view px-8 pt-16">
-        <h2 class="text-xs tracking-[0.5em] uppercase opacity-20 mb-8 text-center">Cloud Journal</h2>
-        <div class="glass p-5 mb-8 flex items-center">
-            <input type="text" id="task-in" placeholder="Objective..." class="flex-1 bg-transparent outline-none font-light" onkeypress="if(event.key==='Enter')addTask()">
-            <button onclick="addTask()"><i data-lucide="plus"></i></button>
+    <section id="tasks" class="view px-8 pt-24">
+        <div class="flex justify-between items-end mb-8 border-b border-white/10 pb-4">
+            <h2 class="text-3xl font-thin tracking-tighter">Objectives</h2>
+            <button onclick="refreshTasks()" class="opacity-40 hover:opacity-100"><i data-lucide="rotate-cw" class="w-4"></i></button>
         </div>
-        <div id="task-list" class="space-y-4"></div>
-    </section>
-
-    <section id="zen" class="view px-8 pt-20 items-center justify-start">
-        <div id="zen-ring" class="breath-ring w-52 h-52 rounded-full flex items-center justify-center">
-            <div id="zen-text" class="text-[10px] uppercase tracking-[0.4em] opacity-40">Ready</div>
+        
+        <div class="glass p-1 mb-8 flex items-center pl-4">
+            <input type="text" id="task-in" placeholder="New Protocol..." class="flex-1 bg-transparent outline-none font-mono text-sm py-4" onkeypress="if(event.key==='Enter')addTask()">
+            <button onclick="addTask()" class="p-4 opacity-50 hover:opacity-100"><i data-lucide="plus" class="w-4"></i></button>
         </div>
-        <button onclick="startZen()" id="zen-btn" class="mt-24 glass px-12 py-4 text-[10px] uppercase tracking-widest">Begin Ritual</button>
-    </section>
-
-    <section id="map" class="view !p-0 bg-black items-center justify-center">
-        <div id="universe-sky" class="absolute inset-0 overflow-hidden pointer-events-none"></div>
-        <div class="relative z-10 text-center pointer-events-none">
-            <h1 id="star-count" class="text-8xl font-thin tracking-tighter">0</h1>
-            <p class="text-[10px] tracking-[0.5em] uppercase opacity-20 mt-4">Stars Earned</p>
+        
+        <div id="task-list" class="space-y-3 pb-24">
+            <div class="text-center opacity-30 text-[10px] uppercase tracking-widest mt-10">Sync Google Account to activate</div>
         </div>
     </section>
 
-    <section id="settings" class="view px-8 pt-16">
-        <div class="glass p-6 space-y-8">
-            <div class="flex justify-between items-center">
-                <span class="text-xs uppercase tracking-widest opacity-60">Night Amber Mode</span>
-                <input type="checkbox" id="amber-check" onchange="toggleAmber(this.checked)" class="w-6 h-6">
+    <section id="zen" class="view px-8 flex flex-col items-center justify-center">
+        <h2 class="absolute top-24 text-xs tracking-[0.5em] uppercase opacity-20">Box Breathing</h2>
+        
+        <div class="relative mb-16">
+            <div id="zen-ring" class="breath-ring w-64 h-64 rounded-full flex items-center justify-center border border-white/10">
+                <div id="zen-text" class="text-xs uppercase tracking-[0.3em] font-light opacity-50 text-center leading-loose">
+                    4-4-4-4<br><span class="text-[8px] opacity-40">Method</span>
+                </div>
             </div>
-            <button onclick="handleSignoutClick()" class="w-full text-left text-[10px] uppercase tracking-widest text-red-500/50">Disconnect Google</button>
+        </div>
+
+        <div class="flex items-center gap-4 mb-8 glass px-4 py-2">
+            <span class="text-[9px] uppercase opacity-40">Cycles</span>
+            <button onclick="adjBreath(-1)" class="opacity-50 hover:opacity-100">-</button>
+            <span id="breath-count" class="font-mono text-sm w-4 text-center">5</span>
+            <button onclick="adjBreath(1)" class="opacity-50 hover:opacity-100">+</button>
+        </div>
+
+        <button onclick="startZen()" id="zen-btn" class="glass px-12 py-4 text-[10px] uppercase tracking-widest hover:bg-white/5 transition">Begin Ritual</button>
+    </section>
+
+    <section id="stats" class="view px-8 pt-24">
+        <h2 class="text-3xl font-thin tracking-tighter mb-2">Analytics</h2>
+        <p class="text-[10px] uppercase tracking-widest opacity-40 mb-10">Performance Metrics</p>
+
+        <div class="grid grid-cols-2 gap-4 mb-8">
+            <div class="glass p-5">
+                <h3 class="text-[9px] uppercase opacity-40 mb-2">Total Focus</h3>
+                <p id="stat-total" class="text-2xl font-mono">0h</p>
+            </div>
+            <div class="glass p-5">
+                <h3 class="text-[9px] uppercase opacity-40 mb-2">Longest Session</h3>
+                <p id="stat-max" class="text-2xl font-mono">0m</p>
+            </div>
+            <div class="glass p-5 col-span-2">
+                <h3 class="text-[9px] uppercase opacity-40 mb-4">Last 7 Days (Minutes)</h3>
+                <div id="graph-container" class="h-32 w-full flex items-end justify-between gap-2"></div>
+            </div>
+        </div>
+
+        <div class="glass p-6 mt-4">
+             <div class="flex items-center gap-4 mb-6">
+                <img id="stats-img" src="" class="w-12 h-12 rounded-full bg-white/10 hidden">
+                <div id="stats-info">
+                    <h4 class="text-sm font-bold">Anonymous</h4>
+                    <p class="text-[10px] opacity-40 uppercase">Guest Access</p>
+                </div>
+             </div>
+             <button id="auth-btn" onclick="handleAuthClick()" class="w-full py-3 border border-white/20 rounded-lg text-[10px] uppercase tracking-widest hover:bg-white text-white hover:text-black transition">
+                 Sync Google Account
+             </button>
+             <button onclick="handleSignoutClick()" id="signout-btn" class="hidden w-full mt-3 py-3 text-red-400/50 text-[10px] uppercase tracking-widest hover:text-red-400">
+                 Disconnect
+             </button>
         </div>
     </section>
 
