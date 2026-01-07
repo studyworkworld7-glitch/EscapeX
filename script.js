@@ -1,5 +1,5 @@
 /* GOOGLE CONFIGURATION */
-const CLIENT_ID = 'PASTE_YOUR_CLIENT_ID_HERE';
+const CLIENT_ID = '445613530144-8nca3h64lackcrmkd3joge3cv7ir91uu.apps.googleusercontent.com';
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
 const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
 
