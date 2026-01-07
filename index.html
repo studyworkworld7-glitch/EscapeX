@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Project Escape | Cloud Build</title>
-    
+    <title>Project Escape | Cloud Sync</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;600&display=swap" rel="stylesheet">
@@ -18,11 +17,11 @@
     <div id="amber-overlay"></div>
 
     <div id="auth-screen" class="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-8 text-center">
-        <h1 class="text-xs tracking-[0.8em] uppercase opacity-40 mb-12">Initialize Escape</h1>
-        <button onclick="handleAuthClick()" class="glass px-8 py-4 text-[10px] uppercase tracking-widest flex items-center gap-3">
-            <i data-lucide="log-in" class="w-4"></i> Sync with Google
+        <h1 class="text-[10px] tracking-[1em] uppercase opacity-40 mb-12">Initialize Escape</h1>
+        <button onclick="handleAuthClick()" class="glass px-10 py-5 text-[10px] uppercase tracking-[0.3em] flex items-center gap-3 hover:bg-white/10 transition-all">
+            <i data-lucide="log-in" class="w-4"></i> Sync Google Account
         </button>
-        <p class="text-[8px] uppercase opacity-20 mt-8 leading-loose">Data will be stored securely<br>in your private Google App Data folder</p>
+        <p class="text-[8px] uppercase opacity-20 mt-10 leading-loose tracking-widest">Encrypted Sync: Drive • Tasks • Calendar</p>
     </div>
 
     <nav class="fixed bottom-0 w-full h-24 bg-black/95 backdrop-blur-3xl border-t border-white/5 flex justify-around items-center z-50 px-4 pb-4">
@@ -34,7 +33,10 @@
     </nav>
 
     <section id="focus" class="view active px-8 pt-10">
-        <div class="text-center mb-6"><h1 class="text-[10px] tracking-[0.5em] uppercase opacity-30">The Void</h1></div>
+        <div class="text-center mb-4">
+            <h1 class="text-[10px] tracking-[0.5em] uppercase opacity-30">The Void</h1>
+            <p id="next-event" class="text-[8px] uppercase tracking-widest text-white/40 mt-2 h-4"></p>
+        </div>
         <div class="relative w-64 h-64 mx-auto flex items-center justify-center mb-10">
             <svg class="absolute inset-0 w-full h-full -rotate-90">
                 <circle cx="128" cy="128" r="120" stroke="rgba(255,255,255,0.05)" stroke-width="1" fill="none"/>
@@ -63,9 +65,9 @@
     </section>
 
     <section id="tasks" class="view px-8 pt-16">
-        <h2 class="text-xs tracking-[0.5em] uppercase opacity-20 mb-8 text-center">Journal</h2>
+        <h2 class="text-xs tracking-[0.5em] uppercase opacity-20 mb-8 text-center">Cloud Journal</h2>
         <div class="glass p-5 mb-8 flex items-center">
-            <input type="text" id="task-in" placeholder="Objective..." class="flex-1 bg-transparent outline-none font-light" onkeypress="if(event.key==='Enter')addTask()">
+            <input type="text" id="task-in" placeholder="New objective..." class="flex-1 bg-transparent outline-none font-light" onkeypress="if(event.key==='Enter')addTask()">
             <button onclick="addTask()"><i data-lucide="plus"></i></button>
         </div>
         <div id="task-list" class="space-y-4"></div>
@@ -95,8 +97,7 @@
                 <input type="checkbox" id="amber-check" onchange="toggleAmber(this.checked)" class="w-6 h-6">
             </div>
             <div class="pt-8 border-t border-white/5 space-y-6">
-                <button onclick="exportData()" class="w-full text-left text-[10px] uppercase tracking-widest opacity-40">Local Backup</button>
-                <button onclick="handleSignoutClick()" class="w-full text-left text-[10px] uppercase tracking-widest text-red-500/50">Disconnect Google</button>
+                <button onclick="handleSignoutClick()" class="w-full text-left text-[10px] uppercase tracking-widest text-red-500/50">Disconnect Cloud</button>
             </div>
         </div>
     </section>
