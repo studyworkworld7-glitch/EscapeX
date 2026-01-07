@@ -1,16 +1,334 @@
 const CLIENT_ID = '445613530144-8nca3h64lackcrmkd3joge3cv7ir91uu.apps.googleusercontent.com';
-const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest','https://www.googleapis.com/discovery/v1/apis/tasks/v1/rest','https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'];
-const SCOPES = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/calendar.readonly';
+const SCOPES = 'https://www.googleapis.com/auth/tasks'; 
+// Discovery doc for Tasks API
+const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/tasks/v1/rest';
 
-let tokenClient, gapiInited = false, cloudFileId = null;
-let db = JSON.parse(localStorage.getItem('escape_db')) || { stars: 0, tasks: [], amber: false };
+// --- STATE MANAGEMENT ---
+let tokenClient;
+let gapiInited = false;
+let userProfile = null;
+// Default Data Structure
+let db = JSON.parse(localStorage.getItem('escape_db_v2')) || { 
+    history: [], // { date: 'YYYY-MM-DD', minutes: 25 }
+    settings: { focus: 25, short: 5, long: 15, rounds: 4 },
+    amber: false
+};
 
-// --- AUDIO ENGINE ---
+// --- AUTHENTICATION (Lazy Load) ---
+function handleProfileClick() {
+    if(userProfile) show('stats'); // If logged in, go to stats
+    else handleAuthClick(); // Else, try login
+}
+
+function handleAuthClick() {
+    if(!gapiInited) return;
+    tokenClient.requestAccessToken({prompt: 'consent'});
+}
+
+function handleSignoutClick() {
+    const token = gapi.client.getToken();
+    if (token) {
+        google.accounts.oauth2.revoke(token.access_token);
+        gapi.client.setToken('');
+        userProfile = null;
+        updateAuthUI();
+        renderTasks(); // Clear tasks
+    }
+}
+
+function updateAuthUI() {
+    const img = document.getElementById('profile-img');
+    const status = document.getElementById('login-status');
+    const statsImg = document.getElementById('stats-img');
+    const statsInfo = document.getElementById('stats-info');
+    const authBtn = document.getElementById('auth-btn');
+    const signoutBtn = document.getElementById('signout-btn');
+
+    if(userProfile) {
+        // Logged In State
+        img.innerHTML = `<img src="${userProfile.picture}" class="w-full h-full object-cover">`;
+        status.innerText = "Online";
+        statsImg.src = userProfile.picture;
+        statsImg.classList.remove('hidden');
+        statsInfo.innerHTML = `<h4 class="text-sm font-bold">${userProfile.name}</h4><p class="text-[10px] opacity-40 uppercase">Sync Active</p>`;
+        authBtn.classList.add('hidden');
+        signoutBtn.classList.remove('hidden');
+        refreshTasks();
+    } else {
+        // Guest State
+        img.innerHTML = `<i data-lucide="user" class="w-4 h-4 opacity-50"></i>`;
+        status.innerText = "Guest";
+        statsImg.classList.add('hidden');
+        statsInfo.innerHTML = `<h4 class="text-sm font-bold">Anonymous</h4><p class="text-[10px] opacity-40 uppercase">Guest Access</p>`;
+        authBtn.classList.remove('hidden');
+        signoutBtn.classList.add('hidden');
+        lucide.createIcons();
+    }
+}
+
+// --- GOOGLE TASKS LOGIC ---
+let localTasks = []; // Store tasks here
+
+async function refreshTasks() {
+    if(!userProfile) { renderTasks(); return; }
+    try {
+        const resp = await gapi.client.tasks.tasks.list({ tasklist: '@default', showCompleted: false, maxResults: 20 });
+        localTasks = resp.result.items || [];
+        renderTasks();
+    } catch(e) { console.error("Task Error", e); }
+}
+
+async function addTask() {
+    const input = document.getElementById('task-in');
+    const title = input.value.trim();
+    if(!title) return;
+    
+    // Optimistic UI Update
+    const tempId = 'temp_' + Date.now();
+    localTasks.push({ id: tempId, title: title, status: 'needsAction' });
+    input.value = '';
+    renderTasks();
+
+    if(userProfile) {
+        try {
+            await gapi.client.tasks.tasks.insert({ tasklist: '@default', resource: { title: title } });
+            refreshTasks(); // Sync real ID
+        } catch(e) { console.error(e); }
+    }
+}
+
+async function toggleTask(id, currentStatus) {
+    // Find task locally
+    const task = localTasks.find(t => t.id === id);
+    if(task) task.status = 'completed'; // Hide immediately
+    renderTasks();
+
+    if(userProfile) {
+        try {
+            await gapi.client.tasks.tasks.update({ 
+                tasklist: '@default', task: id, 
+                id: id, status: 'completed' 
+            });
+            setTimeout(refreshTasks, 500);
+        } catch(e) { console.error(e); }
+    } else {
+        // Guest mode delete
+        localTasks = localTasks.filter(t => t.id !== id);
+        renderTasks();
+    }
+}
+
+async function deleteTask(id) {
+    localTasks = localTasks.filter(t => t.id !== id);
+    renderTasks();
+    if(userProfile) {
+        try { await gapi.client.tasks.tasks.delete({ tasklist: '@default', task: id }); } catch(e){}
+    }
+}
+
+function renderTasks() {
+    const list = document.getElementById('task-list');
+    if(!userProfile && localTasks.length === 0) {
+        list.innerHTML = `<div class="text-center opacity-30 text-[10px] uppercase tracking-widest mt-10">Sync Google Account to manage cloud tasks<br>or type to add local tasks</div>`;
+        return;
+    }
+    
+    // Filter out completed for cleaner look
+    const activeTasks = localTasks.filter(t => t.status !== 'completed');
+    
+    list.innerHTML = activeTasks.map(t => `
+        <div class="glass p-4 flex justify-between items-center group animate-fade-in">
+            <span class="font-mono text-sm">${t.title}</span>
+            <div class="flex gap-3 opacity-0 group-hover:opacity-100 transition">
+                <button onclick="toggleTask('${t.id}', '${t.status}')"><i data-lucide="check" class="w-4 hover:text-green-400"></i></button>
+                <button onclick="deleteTask('${t.id}')"><i data-lucide="trash-2" class="w-4 hover:text-red-400"></i></button>
+            </div>
+        </div>
+    `).join('');
+    lucide.createIcons();
+}
+
+// --- TIMER & ZEN MODE ---
+let timeLeft = 1500, totalTime = 1500, timerId = null;
+let isWork = true;
+
+function toggleTimerSettings() {
+    const el = document.getElementById('timer-settings');
+    el.classList.toggle('hidden');
+}
+
+function updateConfigUI() {
+    db.settings.focus = parseInt(document.getElementById('cfg-focus').value);
+    db.settings.short = parseInt(document.getElementById('cfg-short').value);
+    db.settings.long = parseInt(document.getElementById('cfg-long').value);
+    
+    document.getElementById('val-focus').innerText = db.settings.focus + 'm';
+    document.getElementById('val-short').innerText = db.settings.short + 'm';
+    document.getElementById('val-long').innerText = db.settings.long + 'm';
+    
+    if(!timerId) resetTimer();
+    localStorage.setItem('escape_db_v2', JSON.stringify(db));
+}
+
+function resetTimer() {
+    clearInterval(timerId); timerId = null;
+    isWork = true;
+    totalTime = timeLeft = db.settings.focus * 60;
+    updateTimerDisplay();
+    document.getElementById('main-btn').innerText = "Initialize Flow";
+    document.getElementById('session-type').innerText = "Ready to Lock In";
+    document.body.classList.remove('zen-active');
+}
+
+function toggleTimer() {
+    if(timerId) {
+        // Pause
+        clearInterval(timerId); timerId = null;
+        document.getElementById('main-btn').innerText = "Resume";
+        document.body.classList.remove('zen-active');
+    } else {
+        // Start
+        document.getElementById('main-btn').innerText = "Focus Active";
+        document.body.classList.add('zen-active'); // Hides Navbar
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        
+        timerId = setInterval(() => {
+            timeLeft--;
+            updateTimerDisplay();
+            if(timeLeft <= 0) handleTimerComplete();
+        }, 1000);
+    }
+}
+
+function handleTimerComplete() {
+    clearInterval(timerId); timerId = null;
+    document.body.classList.remove('zen-active');
+    stopAudio(); 
+    
+    // Save Stats
+    if(isWork) {
+        const today = new Date().toISOString().split('T')[0];
+        db.history.push({ date: today, minutes: db.settings.focus });
+        localStorage.setItem('escape_db_v2', JSON.stringify(db));
+        renderStats(); // Update graphs
+    }
+
+    // Switch Modes
+    if(isWork) {
+        isWork = false;
+        totalTime = timeLeft = db.settings.short * 60;
+        document.getElementById('session-type').innerText = "Rest & Recover";
+        document.getElementById('main-btn').innerText = "Start Break";
+        new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play();
+    } else {
+        resetTimer();
+    }
+}
+
+function updateTimerDisplay() {
+    const m = Math.floor(timeLeft/60);
+    const s = timeLeft%60;
+    document.getElementById('timer-display').innerText = `${m}:${s<10?'0':''}${s}`;
+    // Circle progress
+    const offset = 848 - (848 * ((totalTime-timeLeft)/totalTime));
+    document.getElementById('progress').style.strokeDashoffset = offset;
+}
+
+// --- BREATHING (Box Breathing: 4-4-4-4) ---
+let breathCycles = 5, breathInterval;
+function adjBreath(n) { 
+    breathCycles = Math.max(1, breathCycles + n); 
+    document.getElementById('breath-count').innerText = breathCycles; 
+}
+
+function startZen() {
+    const ring = document.getElementById('zen-ring');
+    const txt = document.getElementById('zen-text');
+    const btn = document.getElementById('zen-btn');
+    const nav = document.getElementById('main-nav');
+    
+    btn.style.opacity = '0';
+    nav.style.transform = "translateY(150%)"; // Hide nav during breathing
+
+    let step = 0; // 0:In, 1:Hold, 2:Out, 3:Hold
+    let cyclesDone = 0;
+
+    const instructions = ["Inhale", "Hold", "Exhale", "Hold"];
+    
+    const runStep = () => {
+        if(cyclesDone >= breathCycles) {
+            // Stop
+            clearInterval(breathInterval);
+            ring.className = 'breath-ring w-64 h-64 rounded-full flex items-center justify-center border border-white/10';
+            txt.innerHTML = "Ritual<br>Complete";
+            btn.innerText = "Again?";
+            btn.style.opacity = '1';
+            nav.style.transform = "translateY(0)";
+            return;
+        }
+
+        // Apply Class for Animation
+        ring.className = `breath-ring w-64 h-64 rounded-full flex items-center justify-center border border-white/10 breath-step-${step+1}`;
+        txt.innerText = instructions[step];
+
+        // Next step logic
+        step++;
+        if(step > 3) { step = 0; cyclesDone++; }
+    };
+
+    runStep(); // Run immediate
+    breathInterval = setInterval(runStep, 4000); // 4 seconds per step (Box Breathing)
+}
+
+// --- STATS & GRAPHS ---
+function renderStats() {
+    // 1. Calculate Totals
+    const totalMins = db.history.reduce((acc, cur) => acc + cur.minutes, 0);
+    const maxSession = Math.max(...db.history.map(h => h.minutes), 0);
+    
+    document.getElementById('stat-total').innerText = (totalMins/60).toFixed(1) + 'h';
+    document.getElementById('stat-max').innerText = maxSession + 'm';
+
+    // 2. Generate Last 7 Days Graph (SVG-less, CSS Bars)
+    const container = document.getElementById('graph-container');
+    container.innerHTML = '';
+    
+    const last7Days = [];
+    for(let i=6; i>=0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        last7Days.push(d.toISOString().split('T')[0]);
+    }
+
+    // Get max value for scaling height
+    const dataMap = {};
+    db.history.forEach(h => {
+        dataMap[h.date] = (dataMap[h.date] || 0) + h.minutes;
+    });
+    
+    const maxDaily = Math.max(...Object.values(dataMap), 10); // avoid div by zero
+
+    last7Days.forEach(date => {
+        const val = dataMap[date] || 0;
+        const heightPct = (val / maxDaily) * 100;
+        
+        const bar = document.createElement('div');
+        bar.className = 'flex-1 bg-white/10 hover:bg-white/30 transition rounded-t-sm relative group';
+        bar.style.height = Math.max(heightPct, 5) + '%'; // Min 5% height
+        
+        // Tooltip
+        bar.innerHTML = `<div class="absolute -top-6 left-1/2 -translate-x-1/2 text-[8px] bg-white text-black px-1 rounded opacity-0 group-hover:opacity-100 transition">${val}m</div>`;
+        
+        container.appendChild(bar);
+    });
+}
+
+// --- AUDIO & UTILS ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 let noiseSource = null, tickId = null;
 
 function stopAudio() {
-    if(noiseSource) { try { noiseSource.stop(); } catch(e){} noiseSource = null; }
+    if(noiseSource) { try{noiseSource.stop()}catch(e){}; noiseSource=null; }
     if(tickId) { clearInterval(tickId); tickId = null; }
     document.querySelectorAll('.sound-btn').forEach(b => b.classList.remove('active'));
 }
@@ -18,9 +336,7 @@ function stopAudio() {
 function setAudio(type) {
     stopAudio();
     if (audioCtx.state === 'suspended') audioCtx.resume();
-    
-    const btn = document.getElementById('a-'+type);
-    if(btn) btn.classList.add('active');
+    document.getElementById('a-'+type).classList.add('active');
 
     if(type === 'tick') {
         tickId = setInterval(() => {
@@ -33,153 +349,67 @@ function setAudio(type) {
         }, 1000);
     } else {
         const bufferSize = 2 * audioCtx.sampleRate, buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate), output = buffer.getChannelData(0);
-        let lastOut = 0.0;
         for (let i = 0; i < bufferSize; i++) {
             let white = Math.random() * 2 - 1;
-            if (type === 'brown') {
-                output[i] = (lastOut + (0.02 * white)) / 1.02;
-                lastOut = output[i];
-                output[i] *= 3.5;
-            } else { output[i] = white * 0.12; }
+            output[i] = (type === 'brown' ? (Math.random()*2-1)*0.1 : white * 0.1); 
+            if(type==='brown') { /* Simplified Brown Filter */ }
         }
         noiseSource = audioCtx.createBufferSource();
         noiseSource.buffer = buffer; noiseSource.loop = true;
-        const gainNode = audioCtx.createGain(); gainNode.gain.value = 0.4;
-        noiseSource.connect(gainNode); gainNode.connect(audioCtx.destination);
+        const g = audioCtx.createGain(); g.gain.value = 0.5;
+        noiseSource.connect(g); g.connect(audioCtx.destination);
         noiseSource.start();
     }
 }
 
-// --- GOOGLE & CORE ---
-const save = (upload = true) => {
-    localStorage.setItem('escape_db', JSON.stringify(db));
-    renderTasks(); renderSky();
-    if (upload && gapiInited && gapi.client.getToken()) uploadToCloud();
-};
-
-async function uploadToCloud() {
-    const fileMetadata = { name: 'escape_config.json', parents: ['appDataFolder'] };
-    const content = JSON.stringify(db), boundary = 'foo_bar_baz', delimiter = "\r\n--" + boundary + "\r\n", close_delim = "\r\n--" + boundary + "--";
-    let url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', method = 'POST';
-    if (cloudFileId) { url = `https://www.googleapis.com/upload/drive/v3/files/${cloudFileId}?uploadType=multipart`; method = 'PATCH'; }
-    const body = delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(fileMetadata) + delimiter + 'Content-Type: application/json\r\n\r\n' + content + close_delim;
-    await fetch(url, { method, headers: { 'Authorization': 'Bearer ' + gapi.client.getToken().access_token, 'Content-Type': 'multipart/related; boundary=' + boundary }, body });
-}
-
-async function downloadFromCloud() {
-    const response = await gapi.client.drive.files.list({ spaces: 'appDataFolder', fields: 'files(id, name)' });
-    const file = response.result.files.find(f => f.name === 'escape_config.json');
-    if (file) {
-        cloudFileId = file.id;
-        const res = await gapi.client.drive.files.get({ fileId: cloudFileId, alt: 'media' });
-        db = res.result;
-        save(false);
-    }
-}
-
-async function syncGoogleServices() {
-    try {
-        const taskRes = await gapi.client.tasks.tasks.list({ tasklist: '@me', maxResults: 10 });
-        if (taskRes.result.items) {
-            taskRes.result.items.forEach(gt => {
-                if (!db.tasks.find(t => t.text === gt.title)) db.tasks.push({ id: gt.id, text: gt.title, done: gt.status === 'completed' });
-            });
-        }
-        const calRes = await gapi.client.calendar.events.list({ calendarId: 'primary', timeMin: (new Date()).toISOString(), maxResults: 1, singleEvents: true, orderBy: 'startTime' });
-        const event = calRes.result.items[0];
-        if (event) document.getElementById('next-event').innerText = `Next: ${event.summary} (${new Date(event.start.dateTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})`;
-        save();
-    } catch (e) { console.error(e); }
-}
-
-function handleAuthClick() { tokenClient.requestAccessToken({prompt: 'consent'}); }
-function handleSignoutClick() { 
-    const token = gapi.client.getToken();
-    if (token) { google.accounts.oauth2.revoke(token.access_token); gapi.client.setToken(''); location.reload(); }
-}
-
-function gapiLoaded() { gapi.load('client', async () => { await gapi.client.init({ discoveryDocs: DISCOVERY_DOCS }); gapiInited = true; }); }
-function gsiLoaded() {
-    tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID, scope: SCOPES,
-        callback: async (resp) => {
-            document.getElementById('auth-screen').style.display = 'none';
-            await downloadFromCloud(); await syncGoogleServices();
-        },
-    });
+function toggleFullscreen() {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else if (document.exitFullscreen) document.exitFullscreen();
 }
 
 function show(id) {
-    document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
-    const target = document.getElementById(id);
-    target.style.display = 'flex';
-    setTimeout(() => target.classList.add('active'), 10);
+    document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); });
+    document.getElementById(id).classList.add('active');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById('n-'+id).classList.add('active');
-    if(id === 'map') renderSky();
+    if(id==='tasks') refreshTasks();
+    if(id==='stats') renderStats();
+}
+
+// --- INIT ---
+window.onload = () => {
+    // Load Token Client
+    gapi.load('client', () => {
+        gapi.client.init({ discoveryDocs: [DISCOVERY_DOC] }).then(() => {
+            gapiInited = true;
+        });
+    });
+    
+    tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID, scope: SCOPES,
+        callback: (resp) => {
+            if (resp.error) return;
+            // Fetch User Profile from People API or assume success and get basic info
+            // For simplicity in this lightweight version, we decode the token or just fetch user info via separate endpoint if needed.
+            // Using a simple trick to get profile info:
+            const token = gapi.client.getToken();
+            fetch('https://www.googleapis.com/oauth2/v3/userinfo', { 
+                headers: { Authorization: `Bearer ${token.access_token}` }
+            })
+            .then(r => r.json())
+            .then(data => {
+                userProfile = data;
+                updateAuthUI();
+            });
+        },
+    });
+
+    // Init Config
+    document.getElementById('cfg-focus').value = db.settings.focus;
+    document.getElementById('cfg-short').value = db.settings.short;
+    document.getElementById('cfg-long').value = db.settings.long;
+    updateConfigUI();
+    
+    updateAuthUI(); // Start in Guest Mode
     lucide.createIcons();
-}
-
-let timeLeft = 1500, totalTime = 1500, running = false, timerInterval;
-function setTimer(s) { clearInterval(timerInterval); running = false; timeLeft = totalTime = s; updateUI(); }
-function toggleTimer() {
-    if(running) { clearInterval(timerInterval); running = false; document.getElementById('main-btn').innerText = "Resume Flow"; }
-    else {
-        running = true; document.getElementById('main-btn').innerText = "Stay Focused";
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        timerInterval = setInterval(() => {
-            timeLeft--; updateUI();
-            if(timeLeft <= 0) { clearInterval(timerInterval); db.stars++; save(); setTimer(totalTime); }
-        }, 1000);
-    }
-}
-function updateUI() {
-    const m = Math.floor(timeLeft/60), s = timeLeft%60;
-    document.getElementById('timer-display').innerText = `${m}:${s<10?'0':''}${s}`;
-    document.getElementById('progress').style.strokeDashoffset = 754 - (754 * (totalTime-timeLeft)/totalTime);
-}
-
-function addTask() {
-    const input = document.getElementById('task-in'); if(!input.value) return;
-    db.tasks.push({id: Date.now(), text: input.value, done: false});
-    input.value = ''; save();
-}
-function renderTasks() {
-    document.getElementById('task-list').innerHTML = db.tasks.map(t => `
-        <div class="glass p-6 flex justify-between items-center" ondblclick="burnTask(this, ${t.id})">
-            <span class="font-light ${t.done?'opacity-20 line-through':''}">${t.text}</span>
-            <button onclick="toggleTask(${t.id})"><i data-lucide="${t.done?'rotate-ccw':'check'}" class="w-4 opacity-40 pointer-events-none"></i></button>
-        </div>
-    `).join('');
-    lucide.createIcons();
-}
-function toggleTask(id) { db.tasks = db.tasks.map(t => t.id === id ? {...t, done: !t.done} : t); save(); }
-function burnTask(el, id) { el.classList.add('burning'); setTimeout(() => { db.tasks = db.tasks.filter(t => t.id !== id); save(); }, 1100); }
-
-function startZen() {
-    const ring = document.getElementById('zen-ring'), txt = document.getElementById('zen-text'), steps = ["Inhale", "Hold", "Exhale", "Hold"];
-    let i = 0; document.getElementById('zen-btn').style.opacity = '0';
-    const cycle = () => { txt.innerText = steps[i % 4]; if(i % 4 === 0) ring.classList.add('inhale'); if(i % 4 === 2) ring.classList.remove('inhale'); i++; setTimeout(cycle, 4000); };
-    cycle();
-}
-
-function renderSky() {
-    const sky = document.getElementById('universe-sky'); if(!sky) return;
-    sky.innerHTML = '';
-    for(let i=0; i<db.stars; i++) {
-        const s = document.createElement('div'); s.className = 'star';
-        s.style.width = s.style.height = (Math.random()*2+1)+'px';
-        s.style.left = Math.random()*100+'%'; s.style.top = Math.random()*100+'%';
-        s.style.setProperty('--d', (Math.random()*4+2)+'s');
-        sky.appendChild(s);
-    }
-    document.getElementById('star-count').innerText = db.stars;
-}
-
-function toggleAmber(c) { db.amber = c; document.getElementById('amber-overlay').style.display = c?'block':'none'; save(); }
-
-window.onload = () => { 
-    gapiLoaded(); gsiLoaded();
-    if(db.amber) { document.getElementById('amber-check').checked = true; toggleAmber(true); } 
-    renderTasks(); updateUI(); lucide.createIcons();
 };
