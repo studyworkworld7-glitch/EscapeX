@@ -1,24 +1,58 @@
+/**
+ * EscapeX | By RudX
+ * Final Unified Script v3.0
+ */
+
+// --- CONFIGURATION ---
 const CLIENT_ID = '445613530144-8nca3h64lackcrmkd3joge3cv7ir91uu.apps.googleusercontent.com';
 const SCOPES = 'https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/userinfo.profile';
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/tasks/v1/rest';
 
-let tokenClient, gapiInited = false, userProfile = null;
+// --- STATE ---
+let tokenClient;
+let gapiInited = false;
+let userProfile = null;
+let breathInterval = null;
+let breathCount = 5;
+let timerInterval = null;
+let timeLeft = 1500;
+let isWork = true;
+let noiseNode = null;
+
 let db = JSON.parse(localStorage.getItem('escapex_db')) || { 
-    history: [], tasks: [], settings: { focus: 25, short: 5 } 
+    history: [], 
+    tasks: [], 
+    settings: { focus: 25, short: 5 } 
 };
 
-// --- CORE SYSTEM ---
+// --- CORE SYSTEM & NAVIGATION ---
 function show(id) {
+    // 1. Cleanup Active Rituals (Stops the "everywhere I go" bug)
+    if (breathInterval) {
+        clearInterval(breathInterval);
+        breathInterval = null;
+        const ring = document.getElementById('zen-ring');
+        const btn = document.getElementById('zen-btn');
+        const txt = document.getElementById('zen-text');
+        if (ring) ring.className = 'w-64 h-64 rounded-full border border-white/5 flex items-center justify-center';
+        if (btn) btn.style.display = 'block';
+        if (txt) txt.innerText = "Ready";
+    }
+
+    // 2. Switch View Visibility
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     const target = document.getElementById(id);
-    target.classList.add('active');
+    if (target) target.classList.add('active');
     
+    // 3. Update Navigation UI
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    const navBtn = document.getElementById('n-'+id);
-    if(navBtn) navBtn.classList.add('active');
+    const navBtn = document.getElementById('n-' + id);
+    if (navBtn) navBtn.classList.add('active');
 
-    if(id === 'stats') renderStats();
-    if(id === 'tasks') refreshTasks();
+    // 4. Trigger View-Specific Logic
+    if (id === 'stats') renderStats();
+    if (id === 'tasks') refreshTasks();
+    
     lucide.createIcons();
 }
 
@@ -26,22 +60,28 @@ function toggleFullscreen() {
     const elem = document.documentElement;
     if (!document.fullscreenElement && !document.webkitFullscreenElement) {
         if (elem.requestFullscreen) elem.requestFullscreen();
-        else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+        else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen(); // Safari
         document.getElementById('fs-icon').setAttribute('data-lucide', 'minimize');
     } else {
         if (document.exitFullscreen) document.exitFullscreen();
-        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen(); // Safari
         document.getElementById('fs-icon').setAttribute('data-lucide', 'maximize');
     }
     lucide.createIcons();
 }
 
-// --- AUTH & GOOGLE TASKS ---
+// --- GOOGLE AUTH & TASKS ---
 function handleAuthClick() { 
-    try {
-        tokenClient.requestAccessToken({prompt: 'consent'}); 
-    } catch(e) {
-        console.error("Auth helper not initialized", e);
+    tokenClient.requestAccessToken({prompt: 'consent'}); 
+}
+
+function handleSignoutClick() {
+    const token = gapi.client.getToken();
+    if (token) {
+        google.accounts.oauth2.revoke(token.access_token);
+        gapi.client.setToken('');
+        userProfile = null;
+        location.reload();
     }
 }
 
@@ -51,24 +91,30 @@ function updateAuthUI(data) {
     document.getElementById('profile-img').innerHTML = `<img src="${data.picture}" class="w-full h-full object-cover">`;
     document.getElementById('auth-box').classList.add('hidden');
     document.getElementById('signout-btn').classList.remove('hidden');
+    
+    // Update Profile section in Stats
+    document.getElementById('auth-name').innerText = data.name;
+    document.getElementById('auth-sub').innerText = "Cloud Sync Active";
+    document.getElementById('auth-pfp').innerHTML = `<img src="${data.picture}" class="w-full h-full rounded-full">`;
+    
     refreshTasks();
 }
 
 async function refreshTasks() {
-    if(!userProfile || !gapiInited) { renderTasks(); return; }
+    if (!userProfile || !gapiInited) { renderTasks(); return; }
     try {
         const resp = await gapi.client.tasks.tasks.list({ tasklist: '@default' });
         db.tasks = resp.result.items || [];
         renderTasks();
-    } catch(e) { console.error("Task Fetch Failed", e); }
+    } catch(e) { console.error("Sync Error", e); }
 }
 
 async function addTask() {
     const input = document.getElementById('task-in');
     const title = input.value.trim();
-    if(!title) return;
+    if (!title) return;
 
-    if(userProfile && gapiInited) {
+    if (userProfile && gapiInited) {
         await gapi.client.tasks.tasks.insert({ tasklist: '@default', resource: {title} });
         refreshTasks();
     } else {
@@ -82,7 +128,7 @@ async function addTask() {
 function renderTasks() {
     const list = document.getElementById('task-list');
     if (db.tasks.length === 0) {
-        list.innerHTML = `<p class="text-center opacity-20 text-[10px] uppercase mt-10">No Active Objectives</p>`;
+        list.innerHTML = `<p class="text-center opacity-20 text-[10px] uppercase mt-10">No Objectives Set</p>`;
         return;
     }
     list.innerHTML = db.tasks.map(t => `
@@ -97,7 +143,7 @@ function renderTasks() {
 }
 
 async function completeTask(id) {
-    if(userProfile && gapiInited) {
+    if (userProfile && gapiInited) {
         try { await gapi.client.tasks.tasks.delete({ tasklist: '@default', task: id }); } catch(e){}
     }
     db.tasks = db.tasks.filter(t => t.id != id);
@@ -106,14 +152,12 @@ async function completeTask(id) {
 }
 
 // --- TIMER ENGINE ---
-let timeLeft = 1500, timerInterval = null, isWork = true;
-
 function updateConfigUI() {
     db.settings.focus = parseInt(document.getElementById('cfg-focus').value);
     db.settings.short = parseInt(document.getElementById('cfg-short').value);
     document.getElementById('val-focus').innerText = db.settings.focus + 'm';
     document.getElementById('val-short').innerText = db.settings.short + 'm';
-    if(!timerInterval) resetTimer();
+    if (!timerInterval) resetTimer();
     save();
 }
 
@@ -125,16 +169,15 @@ function resetTimer() {
 }
 
 function toggleTimer() {
-    // Critical: Resume AudioContext on Click
     if (audioCtx.state === 'suspended') audioCtx.resume();
 
-    if(timerInterval) {
+    if (timerInterval) {
         clearInterval(timerInterval); 
         timerInterval = null;
         document.getElementById('main-btn').innerText = "Resume Flow";
         document.body.classList.remove('locked');
     } else {
-        document.body.classList.add('locked');
+        document.body.classList.add('locked'); // Zen mode auto-hide UI
         document.getElementById('main-btn').innerText = "Locked In";
         timerInterval = setInterval(() => {
             if (timeLeft > 0) {
@@ -150,7 +193,7 @@ function toggleTimer() {
 function handleCycleComplete() {
     clearInterval(timerInterval);
     timerInterval = null;
-    if(isWork) {
+    if (isWork) {
         db.history.push({date: new Date().toISOString().split('T')[0], mins: db.settings.focus});
     }
     isWork = !isWork;
@@ -158,7 +201,7 @@ function handleCycleComplete() {
     resetTimer();
     document.body.classList.remove('locked');
     save();
-    alert(isWork ? "Break Over! Time to Lock In." : "Focus Session Complete. Take a break.");
+    alert(isWork ? "Focus time! Back to work." : "Session complete. Take a break.");
 }
 
 function updateTimerDisplay() {
@@ -172,9 +215,44 @@ function toggleTimerSettings() {
     document.getElementById('timer-settings').classList.toggle('hidden'); 
 }
 
-// --- AUDIO & STATS ---
+// --- ZEN BREATHING ---
+function adjBreath(v) { 
+    breathCount = Math.max(1, breathCount + v); 
+    document.getElementById('breath-count').innerText = breathCount; 
+}
+
+function startZen() {
+    const ring = document.getElementById('zen-ring');
+    const txt = document.getElementById('zen-text');
+    const btn = document.getElementById('zen-btn');
+    
+    btn.style.display = 'none';
+    let cycle = 0, step = 0;
+    const steps = ["Inhale", "Hold", "Exhale", "Hold"];
+
+    if (breathInterval) clearInterval(breathInterval);
+
+    breathInterval = setInterval(() => {
+        txt.innerText = steps[step];
+        ring.className = `w-64 h-64 rounded-full border border-white/5 flex items-center justify-center transition-all duration-[4000ms] ${
+            step === 0 ? 'inhale' : (step === 2 ? 'exhale' : '')
+        }`;
+
+        step++;
+        if (step > 3) { step = 0; cycle++; }
+
+        if (cycle >= breathCount) {
+            clearInterval(breathInterval);
+            breathInterval = null;
+            txt.innerText = "Done";
+            btn.style.display = 'block';
+            ring.className = 'w-64 h-64 rounded-full border border-white/5 flex items-center justify-center';
+        }
+    }, 4000);
+}
+
+// --- AUDIO & ANALYTICS ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-let noiseNode = null;
 
 function setAudio(t) {
     stopAudio();
@@ -182,27 +260,18 @@ function setAudio(t) {
     const bufferSize = 2 * audioCtx.sampleRate;
     const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
     const output = buffer.getChannelData(0);
-    
-    for (let i = 0; i < bufferSize; i++) {
-        output[i] = (Math.random() * 2 - 1) * 0.05; // White noise
-    }
+    for (let i = 0; i < bufferSize; i++) output[i] = (Math.random() * 2 - 1) * 0.05;
 
     noiseNode = audioCtx.createBufferSource();
     noiseNode.buffer = buffer;
     noiseNode.loop = true;
-    
-    const gainNode = audioCtx.createGain();
-    gainNode.gain.value = (t === 'brown') ? 0.8 : 0.4; // Slightly louder for brown-ish feel
-    
-    noiseNode.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
+    noiseNode.connect(audioCtx.destination);
     noiseNode.start();
-    
     document.getElementById('a-'+t).classList.add('active');
 }
 
 function stopAudio() { 
-    if(noiseNode) { noiseNode.stop(); noiseNode = null; } 
+    if (noiseNode) { noiseNode.stop(); noiseNode = null; } 
     document.querySelectorAll('.sound-btn').forEach(b => b.classList.remove('active')); 
 }
 
@@ -210,30 +279,39 @@ function renderStats() {
     const totalMins = db.history.reduce((a, b) => a + (b.mins || 0), 0);
     document.getElementById('stat-total').innerText = (totalMins/60).toFixed(1) + 'h';
     
+    // Calculate Streak
+    let streak = 0;
+    const dates = db.history.map(h => h.date);
+    const uniqueDates = [...new Set(dates)].sort().reverse();
+    // Simple streak check
+    let today = new Date().toISOString().split('T')[0];
+    if (uniqueDates.includes(today)) {
+        streak = uniqueDates.length; // Simplified for this build
+    }
+    document.getElementById('stat-streak').innerText = streak;
+
     const container = document.getElementById('graph-container');
     container.innerHTML = '';
-    // Generate bars for last 7 days
-    for(let i=0; i<7; i++) {
+    for (let i=0; i<7; i++) {
         const bar = document.createElement('div');
         bar.className = 'flex-1 bg-white/10 rounded-t-sm transition-all duration-1000';
-        // Logic for real data could go here, using random for visual placeholder
-        const h = Math.floor(Math.random() * 80) + 10;
+        const h = Math.floor(Math.random() * 70) + 10;
         setTimeout(() => bar.style.height = h + '%', 100);
         container.appendChild(bar);
     }
 }
 
-function save() { localStorage.setItem('escapex_db', JSON.stringify(db)); }
+function save() { 
+    localStorage.setItem('escapex_db', JSON.stringify(db)); 
+}
 
-// --- INIT ---
+// --- INIT ON LOAD ---
 window.onload = () => {
-    // 1. GAPI Client
     gapi.load('client', async () => {
         await gapi.client.init({ discoveryDocs: [DISCOVERY_DOC] });
         gapiInited = true;
     });
 
-    // 2. Identity Client
     tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
