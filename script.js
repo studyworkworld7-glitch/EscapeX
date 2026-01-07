@@ -6,21 +6,59 @@ const DISCOVERY_DOCS = [
 ];
 const SCOPES = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/calendar.readonly';
 
-let tokenClient;
-let gapiInited = false, gsisInited = false;
-let cloudFileId = null;
+let tokenClient, gapiInited = false, cloudFileId = null;
 let db = JSON.parse(localStorage.getItem('escape_db')) || { stars: 0, tasks: [], amber: false };
 
-// --- CLOUD STORAGE LOGIC ---
+// --- AUDIO ENGINE (FIXED) ---
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let noiseSource = null, tickId = null;
+
+function stopAudio() {
+    if(noiseSource) { try { noiseSource.stop(); } catch(e){} noiseSource = null; }
+    if(tickId) { clearInterval(tickId); tickId = null; }
+    document.querySelectorAll('.sound-btn').forEach(b => b.classList.remove('active'));
+}
+
+function setAudio(type) {
+    stopAudio();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    document.getElementById('a-'+type).classList.add('active');
+
+    if(type === 'tick') {
+        tickId = setInterval(() => {
+            const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
+            osc.frequency.setValueAtTime(900, audioCtx.currentTime);
+            g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            osc.connect(g); g.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+        }, 1000);
+    } else {
+        const bufferSize = 2 * audioCtx.sampleRate, buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate), output = buffer.getChannelData(0);
+        let lastOut = 0.0;
+        for (let i = 0; i < bufferSize; i++) {
+            let white = Math.random() * 2 - 1;
+            if (type === 'brown') {
+                output[i] = (lastOut + (0.02 * white)) / 1.02;
+                lastOut = output[i];
+                output[i] *= 3.5;
+            } else { output[i] = white * 0.15; }
+        }
+        noiseSource = audioCtx.createBufferSource();
+        noiseSource.buffer = buffer; noiseSource.loop = true;
+        const gainNode = audioCtx.createGain(); gainNode.gain.value = 0.5;
+        noiseSource.connect(gainNode); gainNode.connect(audioCtx.destination);
+        noiseSource.start();
+    }
+}
+
+// --- CLOUD SYNC LOGIC ---
 async function uploadToCloud() {
     if (!gapiInited || !gapi.client.getToken()) return;
     const fileMetadata = { name: 'escape_config.json', parents: ['appDataFolder'] };
     const content = JSON.stringify(db);
-    const boundary = 'foo_bar_baz';
-    const delimiter = "\r\n--" + boundary + "\r\n";
-    const close_delim = "\r\n--" + boundary + "--";
-    let url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
-    let method = 'POST';
+    const boundary = 'foo_bar_baz', delimiter = "\r\n--" + boundary + "\r\n", close_delim = "\r\n--" + boundary + "--";
+    let url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', method = 'POST';
     if (cloudFileId) { url = `https://www.googleapis.com/upload/drive/v3/files/${cloudFileId}?uploadType=multipart`; method = 'PATCH'; }
     const body = delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(fileMetadata) + delimiter + 'Content-Type: application/json\r\n\r\n' + content + close_delim;
     await fetch(url, { method, headers: { 'Authorization': 'Bearer ' + gapi.client.getToken().access_token, 'Content-Type': 'multipart/related; boundary=' + boundary }, body });
@@ -37,29 +75,25 @@ async function downloadFromCloud() {
     }
 }
 
-// --- GOOGLE TASKS & CALENDAR ---
 async function syncGoogleServices() {
     try {
-        // Fetch Tasks
         const taskRes = await gapi.client.tasks.tasks.list({ tasklist: '@me', maxResults: 10 });
         if (taskRes.result.items) {
             taskRes.result.items.forEach(gt => {
                 if (!db.tasks.find(t => t.text === gt.title)) db.tasks.push({ id: gt.id, text: gt.title, done: gt.status === 'completed' });
             });
         }
-        // Fetch Calendar
         const calRes = await gapi.client.calendar.events.list({ calendarId: 'primary', timeMin: (new Date()).toISOString(), maxResults: 1, singleEvents: true, orderBy: 'startTime' });
         const event = calRes.result.items[0];
         if (event) document.getElementById('next-event').innerText = `Next: ${event.summary} (${new Date(event.start.dateTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})`;
         save();
-    } catch (e) { console.error("Sync Error", e); }
+    } catch (e) { console.error(e); }
 }
 
-// --- CORE FUNCTIONS ---
+// --- CORE UTILITIES ---
 const save = (upload = true) => {
     localStorage.setItem('escape_db', JSON.stringify(db));
-    renderTasks();
-    renderSky();
+    renderTasks(); renderSky();
     if (upload) uploadToCloud();
 };
 
@@ -80,10 +114,6 @@ function gsiLoaded() {
         },
     });
 }
-
-// --- UI LOGIC (Original) ---
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-let noiseSource = null, tickId = null;
 
 function show(id) {
     document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
@@ -151,10 +181,6 @@ function renderSky() {
 }
 
 function toggleAmber(c) { db.amber = c; document.getElementById('amber-overlay').style.display = c?'block':'none'; save(); }
-
-// Audio simplified for size
-function setAudio(t) { stopAudio(); audioCtx.resume(); document.getElementById('a-'+t).classList.add('active'); /* Noise logic... */ }
-function stopAudio() { if(noiseSource) noiseSource.stop(); if(tickId) clearInterval(tickId); document.querySelectorAll('.sound-btn').forEach(b => b.classList.remove('active')); }
 
 window.onload = () => { 
     gapiLoaded(); gsiLoaded();
