@@ -3,43 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Project Escape | Final Build</title>
+    <title>Project Escape | Cloud Build</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;600&display=swap" rel="stylesheet">
-    <style>
-        :root { --bg: #000000; }
-        body { background: var(--bg); color: #fff; font-family: 'Inter', sans-serif; overflow: hidden; height: 100vh; }
-        
-        /* Fixed View Transitions */
-        .view { display: none; height: 100vh; width: 100%; overflow-y: auto; padding-bottom: 140px; scrollbar-width: none; position: absolute; top: 0; left: 0; }
-        .view.active { display: flex; flex-direction: column; animation: fadeIn 0.4s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.99); } to { opacity: 1; transform: scale(1); } }
-        
-        #amber-overlay { position: fixed; inset: 0; background: rgba(255, 120, 0, 0.18); pointer-events: none; z-index: 9999; display: none; }
-        .glass { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; backdrop-filter: blur(12px); }
-        .nav-item { opacity: 0.3; transition: 0.3s; cursor: pointer; }
-        .nav-item.active { opacity: 1; transform: translateY(-4px); }
-        
-        /* Map Stars */
-        .star { position: absolute; background: #fff; border-radius: 50%; box-shadow: 0 0 5px #fff; animation: twinkle var(--d) infinite; }
-        @keyframes twinkle { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
-
-        /* Burn Effect */
-        .burning { animation: burnAway 1.2s forwards; pointer-events: none; }
-        @keyframes burnAway { to { opacity: 0; transform: translateY(-100px) scale(1.8); filter: blur(20px); color: #ff5500; } }
-
-        /* Breathing Circle */
-        .breath-ring { border: 2px solid rgba(255,255,255,0.1); transition: all 4s ease-in-out; }
-        .inhale { transform: scale(1.6); border-color: white; box-shadow: 0 0 50px rgba(255,255,255,0.15); }
-
-        input[type=range] { -webkit-appearance: none; background: rgba(255,255,255,0.1); height: 2px; border-radius: 2px; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; background: white; cursor: pointer; border: 4px solid black; }
-        .sound-btn.active { opacity: 1 !important; color: white !important; }
-    </style>
+    
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+    
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="amber-overlay"></div>
+
+    <div id="auth-screen" class="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-8 text-center">
+        <h1 class="text-xs tracking-[0.8em] uppercase opacity-40 mb-12">Initialize Escape</h1>
+        <button onclick="handleAuthClick()" class="glass px-8 py-4 text-[10px] uppercase tracking-widest flex items-center gap-3">
+            <i data-lucide="log-in" class="w-4"></i> Sync with Google
+        </button>
+        <p class="text-[8px] uppercase opacity-20 mt-8 leading-loose">Data will be stored securely<br>in your private Google App Data folder</p>
+    </div>
 
     <nav class="fixed bottom-0 w-full h-24 bg-black/95 backdrop-blur-3xl border-t border-white/5 flex justify-around items-center z-50 px-4 pb-4">
         <button onclick="show('focus')" class="nav-item active" id="n-focus"><i data-lucide="timer"></i></button>
@@ -81,7 +65,7 @@
     <section id="tasks" class="view px-8 pt-16">
         <h2 class="text-xs tracking-[0.5em] uppercase opacity-20 mb-8 text-center">Journal</h2>
         <div class="glass p-5 mb-8 flex items-center">
-            <input type="text" id="task-in" placeholder="Objective or stress..." class="flex-1 bg-transparent outline-none font-light" onkeypress="if(event.key==='Enter')addTask()">
+            <input type="text" id="task-in" placeholder="Objective..." class="flex-1 bg-transparent outline-none font-light" onkeypress="if(event.key==='Enter')addTask()">
             <button onclick="addTask()"><i data-lucide="plus"></i></button>
         </div>
         <div id="task-list" class="space-y-4"></div>
@@ -111,149 +95,12 @@
                 <input type="checkbox" id="amber-check" onchange="toggleAmber(this.checked)" class="w-6 h-6">
             </div>
             <div class="pt-8 border-t border-white/5 space-y-6">
-                <button onclick="exportData()" class="w-full text-left text-[10px] uppercase tracking-widest opacity-40">Export Backup</button>
-                <button onclick="resetData()" class="w-full text-left text-[10px] uppercase tracking-widest text-red-500/50">Reset Universe</button>
+                <button onclick="exportData()" class="w-full text-left text-[10px] uppercase tracking-widest opacity-40">Local Backup</button>
+                <button onclick="handleSignoutClick()" class="w-full text-left text-[10px] uppercase tracking-widest text-red-500/50">Disconnect Google</button>
             </div>
         </div>
     </section>
 
-    <script>
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        let noiseSource = null, tickId = null;
-
-        function stopAudio() {
-            if(noiseSource) { try { noiseSource.stop(); } catch(e){} noiseSource = null; }
-            if(tickId) { clearInterval(tickId); tickId = null; }
-            document.querySelectorAll('.sound-btn').forEach(b => b.classList.remove('active'));
-        }
-
-        function setAudio(type) {
-            stopAudio(); audioCtx.resume();
-            document.getElementById('a-'+type).classList.add('active');
-            if(type === 'tick') {
-                tickId = setInterval(() => {
-                    const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
-                    osc.frequency.setValueAtTime(900, audioCtx.currentTime);
-                    g.gain.setValueAtTime(0.85, audioCtx.currentTime);
-                    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
-                    osc.connect(g); g.connect(audioCtx.destination);
-                    osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-                }, 1000);
-            } else {
-                const bSize = 2 * audioCtx.sampleRate, buffer = audioCtx.createBuffer(1, bSize, audioCtx.sampleRate), data = buffer.getChannelData(0);
-                let lastOut = 0.0;
-                for(let i=0; i<bSize; i++) {
-                    let w = Math.random() * 2 - 1;
-                    if(type === 'brown') { data[i] = (lastOut + (0.02 * w)) / 1.02; lastOut = data[i]; data[i] *= 3.5; }
-                    else { data[i] = w * 0.5; }
-                }
-                noiseSource = audioCtx.createBufferSource(); noiseSource.buffer = buffer; noiseSource.loop = true;
-                const gain = audioCtx.createGain(); gain.gain.value = 0.5;
-                noiseSource.connect(gain); gain.connect(audioCtx.destination);
-                noiseSource.start();
-            }
-        }
-
-        let db = JSON.parse(localStorage.getItem('escape_vfinal_db')) || { stars: 0, tasks: [], amber: false };
-        const save = () => { localStorage.setItem('escape_vfinal_db', JSON.stringify(db)); renderTasks(); renderSky(); };
-
-        function show(id) {
-            // Hide all views correctly
-            document.querySelectorAll('.view').forEach(v => {
-                v.classList.remove('active');
-                v.style.display = 'none';
-            });
-            // Show requested view
-            const target = document.getElementById(id);
-            target.style.display = 'flex';
-            setTimeout(() => target.classList.add('active'), 10);
-            
-            // Update Nav
-            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            document.getElementById('n-'+id).classList.add('active');
-            
-            // Context specific triggers
-            if(id === 'map') renderSky();
-            lucide.createIcons();
-        }
-
-        let timeLeft = 1500, totalTime = 1500, running = false, timerInterval;
-        function setTimer(s) { clearInterval(timerInterval); running = false; timeLeft = totalTime = s; updateUI(); document.getElementById('main-btn').innerText = "Enter Flow"; }
-        function toggleTimer() {
-            if(running) { clearInterval(timerInterval); document.getElementById('main-btn').innerText = "Resume Flow"; running = false; }
-            else {
-                running = true; document.getElementById('main-btn').innerText = "Stay Focused";
-                timerInterval = setInterval(() => {
-                    timeLeft--; updateUI();
-                    if(timeLeft <= 0) { clearInterval(timerInterval); db.stars++; save(); setTimer(totalTime); }
-                }, 1000);
-            }
-        }
-        function updateUI() {
-            const m = Math.floor(timeLeft/60), s = timeLeft%60;
-            document.getElementById('timer-display').innerText = `${m}:${s<10?'0':''}${s}`;
-            document.getElementById('progress').style.strokeDashoffset = 754 - (754 * (totalTime-timeLeft)/totalTime);
-        }
-        function toggleSlider() { document.getElementById('slider-box').classList.toggle('hidden'); }
-        function updateCustom(v) { document.getElementById('custom-val').innerText = v; setTimer(v*60); }
-
-        function addTask() {
-            const input = document.getElementById('task-in'); if(!input.value) return;
-            db.tasks.push({id: Date.now(), text: input.value, done: false});
-            input.value = ''; save();
-        }
-        function renderTasks() {
-            document.getElementById('task-list').innerHTML = db.tasks.map(t => `
-                <div class="glass p-6 flex justify-between items-center active:scale-95 transition-all" ondblclick="burnTask(this, ${t.id})">
-                    <span class="font-light ${t.done?'opacity-20 line-through':''}">${t.text}</span>
-                    <button onclick="toggleTask(${t.id})"><i data-lucide="${t.done?'rotate-ccw':'check'}" class="w-4 opacity-40"></i></button>
-                </div>
-            `).join('');
-            lucide.createIcons();
-        }
-        function toggleTask(id) { db.tasks = db.tasks.map(t => t.id === id ? {...t, done: !t.done} : t); save(); }
-        function burnTask(el, id) {
-            el.classList.add('burning');
-            setTimeout(() => { db.tasks = db.tasks.filter(t => t.id !== id); save(); }, 1100);
-        }
-
-        function startZen() {
-            const ring = document.getElementById('zen-ring'), txt = document.getElementById('zen-text'), steps = ["Inhale", "Hold", "Exhale", "Hold"];
-            let i = 0; document.getElementById('zen-btn').style.opacity = '0';
-            const cycle = () => {
-                txt.innerText = steps[i % 4];
-                if(i % 4 === 0) ring.classList.add('inhale');
-                if(i % 4 === 2) ring.classList.remove('inhale');
-                i++; setTimeout(cycle, 4000);
-            };
-            cycle();
-        }
-
-        function renderSky() {
-            const sky = document.getElementById('universe-sky'); sky.innerHTML = '';
-            for(let i=0; i<db.stars; i++) {
-                const s = document.createElement('div'); s.className = 'star';
-                s.style.width = s.style.height = (Math.random()*2.5+1)+'px';
-                s.style.left = Math.random()*100+'%'; s.style.top = Math.random()*100+'%';
-                s.style.setProperty('--d', (Math.random()*4+2)+'s');
-                sky.appendChild(s);
-            }
-            document.getElementById('star-count').innerText = db.stars;
-        }
-
-        function toggleAmber(c) { db.amber = c; document.getElementById('amber-overlay').style.display = c?'block':'none'; save(); }
-        function exportData() {
-            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(db)], {type: 'application/json'})); a.download = 'backup.json'; a.click();
-        }
-        function resetData() { if(confirm("Erase all data?")) { localStorage.clear(); location.reload(); } }
-
-        window.onload = () => { 
-            if(db.amber) { document.getElementById('amber-check').checked = true; toggleAmber(true); } 
-            save(); 
-            updateUI();
-            lucide.createIcons();
-        };
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
-
