@@ -3,15 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>EsxapeX by RudX</title>
-    
+    <title>Project Escape | Final Build</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;600&display=swap" rel="stylesheet">
-    
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
-    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -19,10 +16,9 @@
 
     <div id="auth-screen" class="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-8 text-center">
         <h1 class="text-[10px] tracking-[1em] uppercase opacity-40 mb-12">Initialize Escape</h1>
-        <button onclick="handleAuthClick()" class="glass px-10 py-5 text-[10px] uppercase tracking-[0.3em] flex items-center gap-3 hover:bg-white/10 transition-all">
+        <button onclick="handleAuthClick()" class="glass px-10 py-5 text-[10px] uppercase tracking-[0.3em] flex items-center gap-3">
             <i data-lucide="log-in" class="w-4"></i> Sync Google Account
         </button>
-        <p class="text-[8px] uppercase opacity-20 mt-10 leading-loose tracking-widest">Safe storage in your private Drive</p>
     </div>
 
     <nav class="fixed bottom-0 w-full h-24 bg-black/95 backdrop-blur-3xl border-t border-white/5 flex justify-around items-center z-50 px-4 pb-4">
@@ -56,11 +52,12 @@
                 <p class="text-center mt-4 text-[10px] uppercase opacity-40"><span id="custom-val">25</span> Minutes</p>
             </div>
             <button onclick="toggleTimer()" id="main-btn" class="w-full py-5 bg-white text-black font-bold uppercase tracking-[0.4em] text-xs rounded-full">Enter Flow</button>
-            <div class="glass p-3 flex justify-between items-center px-4">
-                <button onclick="setAudio('white')" id="a-white" class="sound-btn opacity-20"><i data-lucide="cloud"></i></button>
-                <button onclick="setAudio('brown')" id="a-brown" class="sound-btn opacity-20"><i data-lucide="waves"></i></button>
-                <button onclick="setAudio('tick')" id="a-tick" class="sound-btn opacity-20"><i data-lucide="watch"></i></button>
-                <button onclick="stopAudio()" class="opacity-20"><i data-lucide="volume-x"></i></button>
+            
+            <div class="glass p-2 flex justify-between items-center px-4 h-16">
+                <button onclick="setAudio('white')" id="a-white" class="sound-btn"><i data-lucide="cloud" class="pointer-events-none"></i></button>
+                <button onclick="setAudio('brown')" id="a-brown" class="sound-btn"><i data-lucide="waves" class="pointer-events-none"></i></button>
+                <button onclick="setAudio('tick')" id="a-tick" class="sound-btn"><i data-lucide="watch" class="pointer-events-none"></i></button>
+                <button onclick="stopAudio()" class="sound-btn text-white/20 hover:text-white"><i data-lucide="volume-x" class="pointer-events-none"></i></button>
             </div>
         </div>
     </section>
@@ -75,7 +72,6 @@
     </section>
 
     <section id="zen" class="view px-8 pt-20 items-center justify-start">
-        <h2 class="text-xs tracking-[0.5em] uppercase opacity-20 mb-20 text-center">Zen Breathing</h2>
         <div id="zen-ring" class="breath-ring w-52 h-52 rounded-full flex items-center justify-center">
             <div id="zen-text" class="text-[10px] uppercase tracking-[0.4em] opacity-40">Ready</div>
         </div>
@@ -91,15 +87,12 @@
     </section>
 
     <section id="settings" class="view px-8 pt-16">
-        <h2 class="text-xs tracking-[0.5em] uppercase opacity-20 mb-8 text-center">Settings</h2>
         <div class="glass p-6 space-y-8">
             <div class="flex justify-between items-center">
                 <span class="text-xs uppercase tracking-widest opacity-60">Night Amber Mode</span>
                 <input type="checkbox" id="amber-check" onchange="toggleAmber(this.checked)" class="w-6 h-6">
             </div>
-            <div class="pt-8 border-t border-white/5 space-y-6">
-                <button onclick="handleSignoutClick()" class="w-full text-left text-[10px] uppercase tracking-widest text-red-500/50">Disconnect Google</button>
-            </div>
+            <button onclick="handleSignoutClick()" class="w-full text-left text-[10px] uppercase tracking-widest text-red-500/50">Disconnect Google</button>
         </div>
     </section>
 
