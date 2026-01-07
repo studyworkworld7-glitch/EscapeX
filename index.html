@@ -25,11 +25,9 @@
             </div>
         </button>
         
-        <div class="flex items-center gap-4">
-            <button onclick="toggleFullscreen()" class="w-10 h-10 flex items-center justify-center glass rounded-full opacity-60 hover:opacity-100 transition">
-                <i data-lucide="maximize" id="fs-icon" class="w-4 h-4"></i>
-            </button>
-        </div>
+        <button onclick="toggleFullscreen()" class="w-10 h-10 flex items-center justify-center glass rounded-full opacity-60 hover:opacity-100 transition">
+            <i data-lucide="maximize" id="fs-icon" class="w-4 h-4"></i>
+        </button>
     </header>
 
     <nav class="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-md h-16 bg-white/5 backdrop-blur-2xl border border-white/10 rounded-full flex justify-around items-center z-50 px-6 transition-all duration-700" id="nav-ui">
@@ -43,7 +41,6 @@
         <div class="text-center mb-6">
             <h1 class="text-[10px] tracking-[0.8em] uppercase opacity-20 font-bold">EscapeX Protocol</h1>
         </div>
-
         <div class="relative w-80 h-80 flex items-center justify-center mb-10">
             <svg class="absolute inset-0 w-full h-full -rotate-90">
                 <circle cx="160" cy="160" r="150" stroke="rgba(255,255,255,0.03)" stroke-width="2" fill="none"/>
@@ -54,14 +51,11 @@
                 <div id="session-type" class="text-[9px] uppercase tracking-[0.4em] opacity-30">Deep Work Mode</div>
             </div>
         </div>
-
         <div class="w-full max-w-xs space-y-4">
             <button onclick="toggleTimer()" id="main-btn" class="w-full py-5 bg-white text-black font-bold uppercase tracking-[0.4em] text-xs rounded-xl hover:scale-[1.02] active:scale-95 transition-all">Initialize Flow</button>
-            
             <button onclick="toggleTimerSettings()" class="w-full py-3 bg-white/5 border border-white/10 text-[9px] uppercase tracking-[0.3em] opacity-60 hover:opacity-100 hover:bg-white/10 rounded-xl flex items-center justify-center gap-2 transition">
                 <i data-lucide="settings-2" class="w-3"></i> System Configuration
             </button>
-
             <div class="flex justify-between items-center px-4 py-2 glass rounded-xl mt-6">
                 <button onclick="setAudio('white')" id="a-white" class="sound-btn"><i data-lucide="cloud"></i></button>
                 <button onclick="setAudio('brown')" id="a-brown" class="sound-btn"><i data-lucide="waves"></i></button>
@@ -89,16 +83,23 @@
     <section id="tasks" class="view px-8 pt-32">
         <div class="max-w-md mx-auto w-full">
             <h2 class="text-4xl font-thin tracking-tighter mb-8">Objectives</h2>
-            <div class="glass flex items-center mb-8 pr-4">
-                <input type="text" id="task-in" placeholder="New objective..." class="flex-1 bg-transparent p-5 outline-none font-light text-sm" onkeypress="if(event.key==='Enter')addTask()">
-                <button onclick="addTask()" class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center"><i data-lucide="plus" class="w-4"></i></button>
+            <div class="mb-10">
+                <p class="text-[9px] uppercase tracking-widest opacity-30 mb-4">Active Tasks</p>
+                <div class="glass flex items-center mb-4 pr-4">
+                    <input type="text" id="task-in" placeholder="New objective..." class="flex-1 bg-transparent p-4 outline-none text-sm" onkeypress="if(event.key==='Enter')addTask()">
+                    <button onclick="addTask()" class="opacity-40"><i data-lucide="plus" class="w-4"></i></button>
+                </div>
+                <div id="task-list" class="space-y-3"></div>
             </div>
-            <div id="task-list" class="space-y-3"></div>
+            <div>
+                <p class="text-[9px] uppercase tracking-widest opacity-30 mb-4">Upcoming Schedule</p>
+                <div id="calendar-list" class="space-y-3"></div>
+            </div>
         </div>
     </section>
 
     <section id="zen" class="view px-8 flex flex-col items-center justify-center">
-        <div id="zen-ring" class="w-64 h-64 rounded-full border border-white/5 flex items-center justify-center transition-all duration-[4000ms] ease-in-out">
+        <div id="zen-ring" class="w-64 h-64 rounded-full border border-white/5 flex items-center justify-center">
             <div id="zen-text" class="text-xs tracking-[0.4em] uppercase opacity-40">Ready</div>
         </div>
         <div class="mt-12 flex flex-col items-center gap-6">
@@ -124,30 +125,11 @@
                     <p id="stat-streak" class="text-3xl font-mono">0</p>
                 </div>
             </div>
-            <div class="glass p-6 mb-8">
-                <p class="text-[9px] uppercase opacity-40 mb-6">Activity (Last 7 Days)</p>
-                <div id="graph-container" class="h-32 flex items-end justify-between gap-2"></div>
-            </div>
-            
-            <div id="auth-box" class="glass p-6 border-white/20">
-                <div class="flex items-center gap-4 mb-6">
-                    <div id="auth-pfp" class="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
-                        <i data-lucide="user"></i>
-                    </div>
-                    <div>
-                        <p id="auth-name" class="font-bold">Guest User</p>
-                        <p id="auth-sub" class="text-[10px] opacity-40 uppercase">Offline Mode</p>
-                    </div>
-                </div>
+            <div id="auth-box" class="glass p-6">
                 <button id="auth-btn" onclick="handleAuthClick()" class="w-full py-4 bg-white text-black font-bold text-[10px] uppercase tracking-widest rounded-xl">Sync Google Account</button>
-                <button id="signout-btn" onclick="handleSignoutClick()" class="hidden w-full mt-4 text-[9px] uppercase opacity-30 hover:opacity-100">Sign Out</button>
             </div>
         </div>
     </section>
-
-    <footer class="fixed bottom-4 w-full text-center pointer-events-none opacity-10 z-10">
-        <p class="text-[8px] uppercase tracking-[1em]">EscapeX | By RudX</p>
-    </footer>
 
     <script src="script.js"></script>
 </body>
