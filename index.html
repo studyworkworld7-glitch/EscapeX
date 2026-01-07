@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Project Escape | Cloud Sync</title>
+    <title>EsxapeX by RudX</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;600&display=swap" rel="stylesheet">
@@ -21,7 +22,7 @@
         <button onclick="handleAuthClick()" class="glass px-10 py-5 text-[10px] uppercase tracking-[0.3em] flex items-center gap-3 hover:bg-white/10 transition-all">
             <i data-lucide="log-in" class="w-4"></i> Sync Google Account
         </button>
-        <p class="text-[8px] uppercase opacity-20 mt-10 leading-loose tracking-widest">Encrypted Sync: Drive • Tasks • Calendar</p>
+        <p class="text-[8px] uppercase opacity-20 mt-10 leading-loose tracking-widest">Safe storage in your private Drive</p>
     </div>
 
     <nav class="fixed bottom-0 w-full h-24 bg-black/95 backdrop-blur-3xl border-t border-white/5 flex justify-around items-center z-50 px-4 pb-4">
@@ -67,7 +68,7 @@
     <section id="tasks" class="view px-8 pt-16">
         <h2 class="text-xs tracking-[0.5em] uppercase opacity-20 mb-8 text-center">Cloud Journal</h2>
         <div class="glass p-5 mb-8 flex items-center">
-            <input type="text" id="task-in" placeholder="New objective..." class="flex-1 bg-transparent outline-none font-light" onkeypress="if(event.key==='Enter')addTask()">
+            <input type="text" id="task-in" placeholder="Objective..." class="flex-1 bg-transparent outline-none font-light" onkeypress="if(event.key==='Enter')addTask()">
             <button onclick="addTask()"><i data-lucide="plus"></i></button>
         </div>
         <div id="task-list" class="space-y-4"></div>
@@ -97,7 +98,7 @@
                 <input type="checkbox" id="amber-check" onchange="toggleAmber(this.checked)" class="w-6 h-6">
             </div>
             <div class="pt-8 border-t border-white/5 space-y-6">
-                <button onclick="handleSignoutClick()" class="w-full text-left text-[10px] uppercase tracking-widest text-red-500/50">Disconnect Cloud</button>
+                <button onclick="handleSignoutClick()" class="w-full text-left text-[10px] uppercase tracking-widest text-red-500/50">Disconnect Google</button>
             </div>
         </div>
     </section>
