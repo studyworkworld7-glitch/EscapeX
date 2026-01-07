@@ -12,25 +12,22 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body id="app-body">
-    <div id="amber-overlay"></div>
-
     <header class="fixed top-0 w-full h-20 flex justify-between items-center px-6 z-[60]" id="header-ui">
-        <button onclick="show('stats')" class="flex items-center gap-3 group">
-            <div id="profile-img" class="w-10 h-10 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center transition group-hover:border-white/40">
+        <div class="flex items-center gap-3">
+            <div id="profile-img" class="w-10 h-10 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center">
                 <i data-lucide="user" class="w-5 h-5 opacity-40"></i>
             </div>
             <div class="text-left">
                 <p class="text-[8px] uppercase tracking-[0.3em] opacity-40">Operator</p>
                 <p id="profile-name" class="text-[10px] uppercase tracking-widest font-bold">Guest_User</p>
             </div>
-        </button>
-        
-        <button onclick="toggleFullscreen()" class="w-10 h-10 flex items-center justify-center glass rounded-full opacity-60 hover:opacity-100 transition">
+        </div>
+        <button onclick="toggleFullscreen()" class="w-10 h-10 flex items-center justify-center glass rounded-full">
             <i data-lucide="maximize" id="fs-icon" class="w-4 h-4"></i>
         </button>
     </header>
 
-    <nav class="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-md h-16 bg-white/5 backdrop-blur-2xl border border-white/10 rounded-full flex justify-around items-center z-50 px-6 transition-all duration-700" id="nav-ui">
+    <nav class="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-md h-16 bg-white/5 backdrop-blur-2xl border border-white/10 rounded-full flex justify-around items-center z-50 px-6" id="nav-ui">
         <button onclick="show('focus')" class="nav-item active" id="n-focus"><i data-lucide="timer"></i></button>
         <button onclick="show('tasks')" class="nav-item" id="n-tasks"><i data-lucide="list-todo"></i></button>
         <button onclick="show('zen')" class="nav-item" id="n-zen"><i data-lucide="wind"></i></button>
@@ -38,9 +35,6 @@
     </nav>
 
     <section id="focus" class="view active px-8 flex flex-col items-center justify-center">
-        <div class="text-center mb-6">
-            <h1 class="text-[10px] tracking-[0.8em] uppercase opacity-20 font-bold">EscapeX Protocol</h1>
-        </div>
         <div class="relative w-80 h-80 flex items-center justify-center mb-10">
             <svg class="absolute inset-0 w-full h-full -rotate-90">
                 <circle cx="160" cy="160" r="150" stroke="rgba(255,255,255,0.03)" stroke-width="2" fill="none"/>
@@ -52,30 +46,27 @@
             </div>
         </div>
         <div class="w-full max-w-xs space-y-4">
-            <button onclick="toggleTimer()" id="main-btn" class="w-full py-5 bg-white text-black font-bold uppercase tracking-[0.4em] text-xs rounded-xl hover:scale-[1.02] active:scale-95 transition-all">Initialize Flow</button>
-            <button onclick="toggleTimerSettings()" class="w-full py-3 bg-white/5 border border-white/10 text-[9px] uppercase tracking-[0.3em] opacity-60 hover:opacity-100 hover:bg-white/10 rounded-xl flex items-center justify-center gap-2 transition">
-                <i data-lucide="settings-2" class="w-3"></i> System Configuration
-            </button>
-            <div class="flex justify-between items-center px-4 py-2 glass rounded-xl mt-6">
+            <button onclick="toggleTimer()" id="main-btn" class="w-full py-5 bg-white text-black font-bold uppercase tracking-[0.4em] text-xs rounded-xl">Initialize Flow</button>
+            <div class="flex justify-between items-center px-4 py-2 glass rounded-xl">
                 <button onclick="setAudio('white')" id="a-white" class="sound-btn"><i data-lucide="cloud"></i></button>
                 <button onclick="setAudio('brown')" id="a-brown" class="sound-btn"><i data-lucide="waves"></i></button>
                 <button onclick="setAudio('tick')" id="a-tick" class="sound-btn"><i data-lucide="clock-3"></i></button>
-                <button onclick="stopAudio()" class="sound-btn text-red-500/40"><i data-lucide="volume-x"></i></button>
+                <button onclick="stopAudio()" class="sound-btn"><i data-lucide="volume-x"></i></button>
             </div>
+            <button onclick="toggleTimerSettings()" class="w-full py-3 opacity-40 text-[9px] uppercase tracking-widest">Settings</button>
         </div>
 
-        <div id="timer-settings" class="hidden fixed inset-0 z-[70] bg-black/95 backdrop-blur-3xl flex flex-col p-10 justify-center">
-            <h2 class="text-xs tracking-[0.5em] uppercase opacity-40 mb-12 text-center">Protocol Parameters</h2>
-            <div class="space-y-10 max-w-sm mx-auto w-full">
+        <div id="timer-settings" class="hidden fixed inset-0 z-[70] bg-black/95 flex flex-col p-10 justify-center">
+            <div class="max-w-sm mx-auto w-full space-y-8">
                 <div class="space-y-3">
-                    <div class="flex justify-between text-[10px] uppercase opacity-50 tracking-widest"><span>Focus</span><span id="val-focus">25m</span></div>
-                    <input type="range" id="cfg-focus" min="5" max="120" value="25" class="w-full" oninput="updateConfigUI()">
+                    <div class="flex justify-between text-[10px] tracking-widest opacity-50"><span>Focus</span><span id="val-focus">25m</span></div>
+                    <input type="range" id="cfg-focus" min="1" max="120" value="25" class="w-full" oninput="updateConfigUI()">
                 </div>
                 <div class="space-y-3">
-                    <div class="flex justify-between text-[10px] uppercase opacity-50 tracking-widest"><span>Short Break</span><span id="val-short">5m</span></div>
+                    <div class="flex justify-between text-[10px] tracking-widest opacity-50"><span>Break</span><span id="val-short">5m</span></div>
                     <input type="range" id="cfg-short" min="1" max="30" value="5" class="w-full" oninput="updateConfigUI()">
                 </div>
-                <button onclick="toggleTimerSettings()" class="w-full py-4 bg-white text-black text-[10px] font-bold uppercase tracking-widest rounded-lg">Apply Changes</button>
+                <button onclick="toggleTimerSettings()" class="w-full py-4 bg-white text-black text-[10px] font-bold uppercase tracking-widest rounded-lg">Save Parameters</button>
             </div>
         </div>
     </section>
@@ -83,50 +74,38 @@
     <section id="tasks" class="view px-8 pt-32">
         <div class="max-w-md mx-auto w-full">
             <h2 class="text-4xl font-thin tracking-tighter mb-8">Objectives</h2>
-            <div class="mb-10">
-                <p class="text-[9px] uppercase tracking-widest opacity-30 mb-4">Active Tasks</p>
+            <div class="mb-12">
+                <p class="text-[9px] uppercase tracking-widest opacity-30 mb-4">Pending Tasks</p>
                 <div class="glass flex items-center mb-4 pr-4">
-                    <input type="text" id="task-in" placeholder="New objective..." class="flex-1 bg-transparent p-4 outline-none text-sm" onkeypress="if(event.key==='Enter')addTask()">
+                    <input type="text" id="task-in" placeholder="New task..." class="flex-1 bg-transparent p-4 outline-none text-sm" onkeypress="if(event.key==='Enter')addTask()">
                     <button onclick="addTask()" class="opacity-40"><i data-lucide="plus" class="w-4"></i></button>
                 </div>
                 <div id="task-list" class="space-y-3"></div>
             </div>
             <div>
-                <p class="text-[9px] uppercase tracking-widest opacity-30 mb-4">Upcoming Schedule</p>
+                <p class="text-[9px] uppercase tracking-widest opacity-30 mb-4">Calendar Events</p>
                 <div id="calendar-list" class="space-y-3"></div>
             </div>
         </div>
     </section>
 
     <section id="zen" class="view px-8 flex flex-col items-center justify-center">
-        <div id="zen-ring" class="w-64 h-64 rounded-full border border-white/5 flex items-center justify-center">
+        <div id="zen-ring" class="w-64 h-64 rounded-full border border-white/5 flex items-center justify-center transition-all duration-[4000ms]">
             <div id="zen-text" class="text-xs tracking-[0.4em] uppercase opacity-40">Ready</div>
         </div>
-        <div class="mt-12 flex flex-col items-center gap-6">
-            <div class="flex items-center gap-6 glass px-6 py-3 rounded-full">
-                <button onclick="adjBreath(-1)" class="opacity-40 hover:opacity-100"><i data-lucide="minus" class="w-4"></i></button>
-                <div class="text-center"><span id="breath-count" class="text-xl font-mono">5</span><p class="text-[8px] uppercase opacity-40">Cycles</p></div>
-                <button onclick="adjBreath(1)" class="opacity-40 hover:opacity-100"><i data-lucide="plus" class="w-4"></i></button>
-            </div>
-            <button onclick="startZen()" id="zen-btn" class="px-10 py-4 glass rounded-full text-[10px] uppercase tracking-[0.3em]">Start Ritual</button>
-        </div>
+        <button onclick="startZen()" id="zen-btn" class="mt-12 px-10 py-4 glass rounded-full text-[10px] uppercase tracking-[0.3em]">Start Ritual</button>
     </section>
 
     <section id="stats" class="view px-8 pt-32">
         <div class="max-w-md mx-auto w-full">
-            <h2 class="text-4xl font-thin tracking-tighter mb-12">Analytics</h2>
-            <div class="grid grid-cols-2 gap-4 mb-8">
-                <div class="glass p-6">
-                    <p class="text-[9px] uppercase opacity-40 mb-2">Total Locked In</p>
-                    <p id="stat-total" class="text-3xl font-mono">0h</p>
-                </div>
-                <div class="glass p-6">
-                    <p class="text-[9px] uppercase opacity-40 mb-2">Best Streak</p>
-                    <p id="stat-streak" class="text-3xl font-mono">0</p>
-                </div>
+            <h2 class="text-4xl font-thin tracking-tighter mb-12 text-center">Cloud Sync</h2>
+            <div id="auth-box" class="glass p-10 text-center">
+                <p class="text-[10px] uppercase tracking-widest opacity-40 mb-6">Connect to Google Workspace</p>
+                <button onclick="handleAuthClick()" class="w-full py-4 bg-white text-black font-bold text-[10px] uppercase tracking-widest rounded-xl">Authorize Account</button>
             </div>
-            <div id="auth-box" class="glass p-6">
-                <button id="auth-btn" onclick="handleAuthClick()" class="w-full py-4 bg-white text-black font-bold text-[10px] uppercase tracking-widest rounded-xl">Sync Google Account</button>
+            <div class="mt-8 glass p-6 flex justify-between">
+                <p class="text-[10px] uppercase opacity-40">Session History</p>
+                <p id="stat-total" class="font-mono text-xl">0.0h</p>
             </div>
         </div>
     </section>
