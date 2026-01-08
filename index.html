@@ -1,110 +1,230 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>EscapeX | By RudX</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
+/**
+ * EscapeX v11.5 | Final Stable Release
+ */
 
-    <header class="fixed top-0 w-full h-24 flex justify-between items-center px-8 z-[60]">
-        <button onclick="show('stats')" class="flex items-center gap-4 group">
-            <div id="profile-img" class="w-12 h-12 rounded-full glass flex items-center justify-center overflow-hidden">
-                <i data-lucide="user" class="w-5 h-5 opacity-40"></i>
-            </div>
-            <div class="text-left">
-                <p id="profile-name" class="text-[10px] uppercase tracking-widest font-bold">Guest Operator</p>
-                <p id="auth-status" class="text-[8px] uppercase tracking-widest opacity-30">Standalone</p>
-            </div>
-        </button>
-        <button onclick="toggleFullscreen()" class="w-12 h-12 glass rounded-full flex items-center justify-center">
-            <i data-lucide="maximize" class="w-4 h-4"></i>
-        </button>
-    </header>
+const CLIENT_ID = '445613530144-8nca3h64lackcrmkd3joge3cv7ir91uu.apps.googleusercontent.com';
+const SCOPES = 'https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/userinfo.profile';
 
-    <nav class="fixed bottom-10 left-1/2 -translate-x-1/2 w-[90%] max-w-md h-20 glass rounded-full flex justify-around items-center z-50 px-8">
-        <button onclick="show('focus')" class="nav-item active" id="n-focus"><i data-lucide="timer"></i></button>
-        <button onclick="show('tasks')" class="nav-item" id="n-tasks"><i data-lucide="layout-list"></i></button>
-        <button onclick="show('zen')" class="nav-item" id="n-zen"><i data-lucide="wind"></i></button>
-        <button onclick="show('stats')" class="nav-item" id="n-stats"><i data-lucide="shield-check"></i></button>
-    </nav>
+let tokenClient;
+let currentToken = localStorage.getItem('escapex_token');
+let timerInterval = null, noiseNode = null;
 
-    <section id="focus" class="view active items-center justify-center">
-        <div class="relative w-80 h-80 flex items-center justify-center mb-10">
-            <svg class="absolute inset-0 w-full h-full -rotate-90">
-                <circle cx="160" cy="160" r="145" stroke="rgba(255,255,255,0.03)" stroke-width="2" fill="none"/>
-                <circle id="progress" cx="160" cy="160" r="145" stroke="white" stroke-width="4" fill="none" stroke-dasharray="911" stroke-dashoffset="911" stroke-linecap="round"/>
-            </svg>
-            <div class="text-center">
-                <div id="timer-display" class="text-7xl font-mono font-thin">25:00</div>
-            </div>
-        </div>
-        <div class="w-full max-w-xs space-y-4 px-6">
-            <button onclick="toggleTimer()" id="main-btn" class="w-full py-5 bg-white text-black font-bold uppercase text-xs rounded-2xl">Start Flow</button>
-            <div class="flex justify-between p-2 glass rounded-2xl">
-                <button onclick="setAudio('white')" id="a-white" class="sound-btn p-4"><i data-lucide="cloud"></i></button>
-                <button onclick="setAudio('brown')" id="a-brown" class="sound-btn p-4"><i data-lucide="waves"></i></button>
-                <button onclick="setAudio('tick')" id="a-tick" class="sound-btn p-4"><i data-lucide="clock-3"></i></button>
-            </div>
-            <button onclick="toggleModal('settings-modal', true)" class="w-full py-2 opacity-30 text-[9px] uppercase tracking-widest">Adjust Parameters</button>
-        </div>
-    </section>
+// Load DB or set defaults
+let db = JSON.parse(localStorage.getItem('escapex_db')) || { settings: { focus: 25, short: 5 } };
+let timeLeft = db.settings.focus * 60;
 
-    <section id="tasks" class="view pt-32 px-8">
-        <div class="max-w-2xl mx-auto space-y-12">
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+// --- THE VIEW ENGINE ---
+function show(id) {
+    // 1. Remove 'active' from all views and nav items
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+    // 2. Activate the selected view and nav icon
+    const targetView = document.getElementById(id);
+    const targetNav = document.getElementById('n-' + id);
+    
+    if (targetView) targetView.classList.add('active');
+    if (targetNav) targetNav.classList.add('active');
+
+    // 3. Refresh data if entering Objectives
+    if (id === 'tasks' && currentToken) refreshAll();
+    
+    lucide.createIcons();
+}
+
+function toggleModal(id, isOpen) {
+    document.getElementById(id).classList.toggle('active', isOpen);
+}
+
+// --- GOOGLE WORKSPACE & PERSISTENCE ---
+window.onload = () => {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: (resp) => {
+            if (resp.access_token) {
+                currentToken = resp.access_token;
+                localStorage.setItem('escapex_token', currentToken);
+                initUser();
+            }
+        }
+    });
+
+    if (currentToken) initUser();
+    updateTimerDisplay();
+    lucide.createIcons();
+};
+
+async function initUser() {
+    try {
+        const resp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${currentToken}` }
+        });
+        if (!resp.ok) throw new Error('Session Expired');
+        const data = await resp.json();
+        
+        // Update Header Profile
+        document.getElementById('profile-name').innerText = data.name;
+        document.getElementById('profile-img').innerHTML = `<img src="${data.picture}" class="w-full h-full object-cover">`;
+        document.getElementById('auth-status').innerText = 'Cloud Active';
+        
+        // Update Stats View
+        document.getElementById('auth-ui').classList.add('hidden');
+        document.getElementById('user-stats').classList.remove('hidden');
+    } catch (e) {
+        localStorage.removeItem('escapex_token');
+        currentToken = null;
+    }
+}
+
+// --- DATA FETCHING (Lists + Subtasks) ---
+async function refreshAll() {
+    if (!currentToken) return;
+    
+    // FETCH TASKS
+    const listResp = await fetch('https://www.googleapis.com/tasks/v1/users/@me/lists', {
+        headers: { Authorization: `Bearer ${currentToken}` }
+    });
+    const lists = await listResp.json();
+    const taskContainer = document.getElementById('task-container');
+    taskContainer.innerHTML = '';
+
+    for (const list of (lists.items || [])) {
+        const tasksResp = await fetch(`https://www.googleapis.com/tasks/v1/lists/${list.id}/tasks?showCompleted=false`, {
+            headers: { Authorization: `Bearer ${currentToken}` }
+        });
+        const tasksData = await tasksResp.json();
+        const allTasks = tasksData.items || [];
+
+        const block = document.createElement('div');
+        block.className = 'list-group';
+        block.innerHTML = `
+            <p class="list-title">${list.title}</p>
+            <div class="space-y-3">
+                ${allTasks.filter(t => !t.parent).map(t => {
+                    const subtasks = allTasks.filter(st => st.parent === t.id);
+                    return `
+                        <div class="glass p-4 rounded-2xl">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-light">${t.title}</span>
+                                <button onclick="deleteTask('${list.id}','${t.id}')" class="opacity-20 hover:opacity-100"><i data-lucide="check" class="w-4"></i></button>
+                            </div>
+                            ${subtasks.map(st => `<p class="ml-6 mt-2 text-xs opacity-40">• ${st.title}</p>`).join('')}
+                        </div>
+                    `;
+                }).join('') || '<p class="text-[10px] opacity-20">Clear</p>'}
+            </div>
+        `;
+        taskContainer.appendChild(block);
+    }
+
+    // FETCH CALENDAR
+    const calResp = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${new Date().toISOString()}&singleEvents=true&orderBy=startTime`, {
+        headers: { Authorization: `Bearer ${currentToken}` }
+    });
+    const calData = await calResp.json();
+    const calContainer = document.getElementById('calendar-container');
+    calContainer.innerHTML = (calData.items || []).map(e => `
+        <div class="glass p-5 rounded-2xl flex justify-between items-center">
             <div>
-                <h2 class="text-2xl font-thin mb-6">Task Intelligence</h2>
-                <div id="task-container" class="space-y-8"></div>
+                <p class="text-[9px] text-amber-500 font-bold mb-1 uppercase">${new Date(e.start.dateTime || e.start.date).toDateString()}</p>
+                <p class="text-sm font-light">${e.summary}</p>
             </div>
-            <div>
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-thin">Temporal Events</h2>
-                    <button onclick="addEvent()" class="text-[9px] glass px-4 py-2 rounded-lg">+ New Event</button>
-                </div>
-                <div id="calendar-container" class="space-y-4"></div>
-            </div>
+            <button onclick="deleteEvent('${e.id}')" class="opacity-20 hover:opacity-100"><i data-lucide="x" class="w-4"></i></button>
         </div>
-    </section>
+    `).join('');
+    
+    lucide.createIcons();
+}
 
-    <section id="zen" class="view items-center justify-center">
-        <div id="zen-ring" class="w-64 h-64 rounded-full border border-white/10 flex items-center justify-center transition-all">
-            <p id="zen-text" class="text-[10px] uppercase tracking-widest opacity-40">Ready</p>
-        </div>
-        <button onclick="startZen()" id="zen-btn" class="mt-12 px-12 py-4 glass rounded-full text-[10px] uppercase">Begin Ritual</button>
-    </section>
+// --- TIMER ENGINE ---
+function updateTimerDisplay() {
+    const m = Math.floor(timeLeft / 60);
+    const s = timeLeft % 60;
+    document.getElementById('timer-display').innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
+    const total = db.settings.focus * 60;
+    document.getElementById('progress').style.strokeDashoffset = 911 - (911 * (1 - timeLeft / total));
+}
 
-    <section id="stats" class="view items-center justify-center px-8">
-        <div id="auth-ui" class="glass p-10 rounded-[3rem] text-center w-full max-w-sm">
-            <button onclick="handleAuth()" class="w-full py-4 bg-white text-black font-bold rounded-xl text-[10px]">SYNC GOOGLE</button>
-        </div>
-        <div id="user-stats" class="hidden w-full max-w-sm space-y-4">
-            <div class="glass p-8 rounded-3xl flex justify-between">
-                <p class="text-[10px] opacity-40">History</p>
-                <p id="total-hours" class="font-mono">0.0h</p>
-            </div>
-            <button onclick="logout()" class="w-full opacity-20 text-[10px]">Disconnect</button>
-        </div>
-    </section>
+function toggleTimer() {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        document.getElementById('main-btn').innerText = "RESUME";
+    } else {
+        document.getElementById('main-btn').innerText = "LOCK IN";
+        timerInterval = setInterval(() => {
+            if (timeLeft > 0) {
+                timeLeft--;
+                updateTimerDisplay();
+            } else {
+                clearInterval(timerInterval);
+                new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play();
+            }
+        }, 1000);
+    }
+}
 
-    <div id="settings-modal">
-        <div class="glass p-10 rounded-[2rem] w-[90%] max-w-sm space-y-8">
-            <div class="space-y-4">
-                <div class="flex justify-between text-[10px] uppercase opacity-40"><span>Focus</span><span id="val-focus">25m</span></div>
-                <input type="range" id="cfg-focus" min="1" max="120" value="25" oninput="updateConfigUI()">
-            </div>
-            <div class="space-y-4">
-                <div class="flex justify-between text-[10px] uppercase opacity-40"><span>Break</span><span id="val-short">5m</span></div>
-                <input type="range" id="cfg-short" min="1" max="30" value="5" oninput="updateConfigUI()">
-            </div>
-            <button onclick="toggleModal('settings-modal', false)" class="w-full py-4 bg-white text-black font-bold text-[10px] rounded-xl">SAVE</button>
-        </div>
-    </div>
+// --- AUDIO ENGINE ---
+function setAudio(type) {
+    stopAudio();
+    const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 2, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    let lastOut = 0;
 
-    <script src="script.js"></script>
-</body>
-</html>
+    for (let i = 0; i < buffer.length; i++) {
+        let white = Math.random() * 2 - 1;
+        if (type === 'white') data[i] = white * 0.05;
+        else if (type === 'brown') { 
+            data[i] = (lastOut + (0.02 * white)) / 1.02; 
+            lastOut = data[i]; 
+            data[i] *= 3.5; 
+        } else if (type === 'tick') {
+            data[i] = (i % audioCtx.sampleRate < 100) ? Math.random() * 0.1 : 0;
+        }
+    }
+    noiseNode = audioCtx.createBufferSource();
+    noiseNode.buffer = buffer; noiseNode.loop = true;
+    noiseNode.connect(audioCtx.destination);
+    noiseNode.start();
+    document.querySelectorAll('.sound-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('a-' + type).classList.add('active');
+}
+
+function stopAudio() { 
+    if (noiseNode) { noiseNode.stop(); noiseNode = null; } 
+    document.querySelectorAll('.sound-btn').forEach(b => b.classList.remove('active'));
+}
+
+// --- SETTINGS ---
+function updateConfigUI() {
+    db.settings.focus = document.getElementById('cfg-focus').value;
+    db.settings.short = document.getElementById('cfg-short').value;
+    document.getElementById('val-focus').innerText = db.settings.focus + 'm';
+    document.getElementById('val-short').innerText = db.settings.short + 'm';
+    
+    if (!timerInterval) {
+        timeLeft = db.settings.focus * 60;
+        updateTimerDisplay();
+    }
+    localStorage.setItem('escapex_db', JSON.stringify(db));
+}
+
+// --- SYSTEM UTILS ---
+async function deleteTask(lId, tId) {
+    await fetch(`https://www.googleapis.com/tasks/v1/lists/${lId}/tasks/${tId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${currentToken}` } });
+    refreshAll();
+}
+async function deleteEvent(id) {
+    await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${currentToken}` } });
+    refreshAll();
+}
+function handleAuth() { tokenClient.requestAccessToken({prompt: 'consent'}); }
+function logout() { localStorage.removeItem('escapex_token'); location.reload(); }
+function toggleFullscreen() {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
+}
