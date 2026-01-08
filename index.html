@@ -3,15 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>EscapeX | Platinum v10.2</title>
+    <title>EscapeX Platinum | Final</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link rel="stylesheet" href="style.css">
 </head>
-<body id="app-body" class="bg-[#030303] text-white font-['Inter']">
+<body id="app-body" class="bg-[#030303] text-white font-sans overflow-hidden h-screen">
     <div id="night-overlay"></div>
 
     <header class="fixed top-0 w-full h-20 flex justify-between items-center px-6 z-[60]" id="header-ui">
@@ -23,7 +22,7 @@
                 <p class="text-[8px] uppercase tracking-[0.3em] opacity-40">Operator</p>
                 <div class="flex items-center gap-2">
                     <p id="profile-name" class="text-[10px] uppercase tracking-widest font-bold">Guest_User</p>
-                    <button onclick="logout()" id="logout-btn" class="hidden text-[7px] uppercase tracking-widest opacity-30 hover:opacity-100 underline decoration-white/10">Logout</button>
+                    <button onclick="logout()" id="logout-btn" class="hidden text-[7px] uppercase tracking-widest opacity-30 hover:opacity-100 underline">Logout</button>
                 </div>
             </div>
         </div>
@@ -44,25 +43,25 @@
             </svg>
             <div class="text-center z-10">
                 <div id="timer-display" class="text-7xl font-mono font-extralight tracking-tighter mb-2">25:00</div>
-                <div id="session-type" class="text-[9px] uppercase tracking-[0.4em] opacity-30">Deep Work</div>
+                <div id="session-type" class="text-[9px] uppercase tracking-[0.4em] opacity-30">Ready</div>
             </div>
         </div>
         <div class="w-full max-w-xs space-y-4">
-            <button onclick="toggleTimer()" id="main-btn" class="w-full py-5 bg-white text-black font-bold uppercase tracking-[0.4em] text-xs rounded-xl hover:scale-[0.98] transition-transform">Initialize Flow</button>
-            <button onclick="toggleModal('sound-menu')" class="w-full py-3 glass flex justify-center items-center gap-2 opacity-50 text-[8px] uppercase tracking-widest"><i data-lucide="music" class="w-3"></i>Audio Environment</button>
-            <button onclick="toggleModal('timer-settings')" class="w-full py-2 opacity-20 text-[8px] uppercase tracking-widest">Protocol Settings</button>
+            <button onclick="toggleTimer()" id="main-btn" class="w-full py-5 bg-white text-black font-bold uppercase tracking-[0.4em] text-xs rounded-xl">Initialize Flow</button>
+            <button onclick="toggleModal('sound-menu')" class="w-full py-3 glass flex justify-center items-center gap-2 opacity-50 text-[8px] uppercase tracking-widest"><i data-lucide="music" class="w-3"></i>Audio</button>
+            <button onclick="toggleModal('timer-settings')" class="w-full py-2 opacity-20 text-[8px] uppercase tracking-widest">Settings</button>
         </div>
     </section>
 
     <section id="tasks" class="view px-8 pt-28 overflow-y-auto">
         <div class="max-w-md mx-auto w-full pb-32">
-            <h2 class="text-3xl font-thin tracking-tighter mb-8">Command Center</h2>
+            <h2 class="text-3xl font-thin tracking-tighter mb-8">Objectives</h2>
             <div class="glass flex items-center mb-8 pr-4 overflow-hidden">
-                <input type="text" id="task-in" placeholder="Deploy new objective..." class="flex-1 bg-transparent p-4 outline-none text-sm" onkeypress="if(event.key==='Enter')addTask()">
-                <button onclick="addTask()" class="opacity-40 hover:opacity-100"><i data-lucide="plus" class="w-4"></i></button>
+                <input type="text" id="task-in" placeholder="New objective..." class="flex-1 bg-transparent p-4 outline-none text-sm" onkeypress="if(event.key==='Enter')addTask()">
+                <button onclick="addTask()"><i data-lucide="plus" class="w-4"></i></button>
             </div>
             <div id="task-list" class="space-y-3 mb-12"></div>
-            <p class="text-[9px] uppercase tracking-widest opacity-30 mb-4">Calendar Bridge</p>
+            <p class="text-[9px] uppercase tracking-widest opacity-30 mb-4">Calendar</p>
             <div id="calendar-list" class="space-y-3"></div>
         </div>
     </section>
@@ -71,75 +70,61 @@
         <div class="flex gap-2 mb-12 glass p-1 rounded-full">
             <button onclick="setZenMode('focus')" id="zen-focus-btn" class="zen-btn active">Focus</button>
             <button onclick="setZenMode('relax')" id="zen-relax-btn" class="zen-btn">Relax</button>
-            <button onclick="setZenMode('study')" id="zen-study-btn" class="zen-btn">Study</button>
         </div>
-        <div id="zen-ring" class="w-64 h-64 rounded-full border border-white/5 flex items-center justify-center transition-all duration-[4000ms] ease-in-out">
-            <div id="zen-text" class="text-xs tracking-[0.4em] uppercase opacity-40">Ready</div>
+        <div id="zen-ring" class="w-64 h-64 rounded-full border border-white/10 flex items-center justify-center transition-all duration-[4000ms]">
+            <div id="zen-text" class="text-xs tracking-[0.4em] uppercase opacity-40">Breath</div>
         </div>
         <button onclick="startZen()" id="zen-btn" class="mt-12 px-10 py-4 glass rounded-full text-[10px] uppercase tracking-[0.3em]">Start Ritual</button>
     </section>
 
     <section id="stats" class="view px-8 pt-28 overflow-y-auto">
         <div class="max-w-md mx-auto w-full space-y-8 pb-32">
-            <button onclick="show('galaxy')" class="w-full py-10 glass rounded-3xl flex flex-col items-center gap-3 group relative overflow-hidden">
-                <div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <button onclick="show('galaxy')" class="w-full py-10 glass rounded-3xl flex flex-col items-center gap-3">
                 <i data-lucide="sparkles" class="text-yellow-200"></i>
-                <span class="text-[10px] uppercase tracking-[0.5em]">View My Galaxy</span>
+                <span class="text-[10px] uppercase tracking-[0.5em]">Stellar Collection</span>
             </button>
-            
             <div id="auth-box" class="glass p-6 text-center">
-                <button onclick="handleAuthClick()" class="w-full py-3 bg-white text-black text-[10px] font-bold uppercase rounded-xl">Authorize Cloud Sync</button>
+                <button onclick="handleAuthClick()" class="w-full py-3 bg-white text-black text-[10px] font-bold uppercase rounded-xl">Google Sync</button>
             </div>
-
             <div class="glass p-6">
                 <div class="h-48 w-full"><canvas id="statChart"></canvas></div>
-                <div class="flex justify-between mt-6 px-2">
-                    <button onclick="updateChart('day')" class="text-[8px] opacity-40 hover:text-white">TODAY</button>
-                    <button onclick="updateChart('week')" class="text-[8px] opacity-40 hover:text-white">WEEK</button>
-                    <button onclick="updateChart('life')" class="text-[8px] opacity-40 hover:text-white">LIFETIME</button>
-                </div>
             </div>
-
-            <div class="flex justify-center pt-8">
-                <button onclick="show('info')" class="opacity-20 hover:opacity-100"><i data-lucide="info" class="w-4"></i></button>
-            </div>
-            <p class="text-center text-[9px] uppercase tracking-[0.6em] opacity-20">Project by Rudra Thorat</p>
+            <button onclick="show('info')" class="w-full opacity-20 text-[10px] uppercase">About Protocol</button>
         </div>
     </section>
 
     <section id="galaxy" class="view bg-black">
-        <div class="fixed top-8 left-8 z-[110] flex flex-col gap-4">
-            <button onclick="show('stats')" class="w-10 h-10 glass rounded-full flex items-center justify-center"><i data-lucide="arrow-left"></i></button>
-            <select id="star-val" onchange="renderGalaxy()" class="bg-white/5 border border-white/10 rounded-lg text-[8px] uppercase p-2 text-white outline-none">
-                <option value="1">1 Star = 1m</option><option value="15" selected>1 Star = 15m</option><option value="60">1 Star = 60m</option>
-            </select>
-        </div>
+        <button onclick="show('stats')" class="fixed top-8 left-8 z-[110] w-10 h-10 glass rounded-full flex items-center justify-center"><i data-lucide="arrow-left"></i></button>
         <canvas id="galaxy-canvas" class="w-full h-full"></canvas>
-        <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
+        <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             <h1 id="galaxy-count" class="text-7xl font-thin tracking-widest">0</h1>
-            <p class="text-[10px] uppercase tracking-[1em] opacity-30 mt-4">Stars Collected</p>
+            <p class="text-[10px] uppercase tracking-[1em] opacity-30 mt-4">Stars</p>
         </div>
     </section>
 
-    <section id="info" class="view px-10 pt-32 overflow-y-auto">
-        <div class="max-w-md mx-auto pb-32">
-            <button onclick="show('stats')" class="mb-12 opacity-40"><i data-lucide="arrow-left"></i></button>
-            <h2 class="text-4xl font-thin tracking-tighter mb-6">Protocol Info</h2>
-            <div class="space-y-8 text-xs opacity-60 leading-relaxed font-light">
-                <p>Designed and built by <span class="text-white">Rudra Thorat</span> in early 2026 (Age 15).</p>
-                <p>EscapeX is an isolated work terminal. It minimizes context-switching by bridging your Google Workspace into a high-focus environment.</p>
-                <div class="glass p-6 space-y-4">
-                    <p class="text-white font-bold uppercase tracking-widest text-[9px]">The Mechanics</p>
-                    <ul class="space-y-2">
-                        <li>• Flow: UI locks upon timer initialization.</li>
-                        <li>• Sync: Live CRUD operations for Tasks/Calendar.</li>
-                        <li>• Galaxy: Visualizing deep-work minutes as stellar mass.</li>
-                    </ul>
-                </div>
+    <div id="sound-menu" class="hidden fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-8">
+        <div class="w-full max-w-sm space-y-8">
+            <div class="grid grid-cols-3 gap-4">
+                <button onclick="setAudio('none')" class="sound-opt">None</button>
+                <button onclick="setAudio('white')" class="sound-opt">White</button>
+                <button onclick="setAudio('binaural')" class="sound-opt">Focus</button>
             </div>
+            <input type="range" id="vol-slider" min="0" max="1" step="0.01" value="0.5" class="w-full" oninput="updateVolume()">
+            <button onclick="toggleModal('sound-menu')" class="w-full py-4 glass text-[10px] uppercase">Close</button>
         </div>
-    </section>
+    </div>
 
-    <div id="sound-menu" class="hidden modal-overlay"><div class="modal-content">...</div></div> <div id="timer-settings" class="hidden modal-overlay"><div class="modal-content">...</div></div> <script src="script.js"></script>
+    <div id="timer-settings" class="hidden fixed inset-0 z-[70] bg-black/98 flex flex-col p-10 justify-center">
+        <div class="max-w-sm mx-auto w-full space-y-6">
+            <input type="range" id="cfg-focus" min="1" max="60" value="25" class="w-full" oninput="updateConfigUI()">
+            <label class="flex justify-between items-center glass p-4 rounded-xl">
+                <span class="text-[10px] uppercase opacity-60">Night Light</span>
+                <input type="checkbox" id="cfg-night" onchange="updateNightLight()">
+            </label>
+            <button onclick="toggleModal('timer-settings')" class="w-full py-4 bg-white text-black font-bold uppercase text-[10px]">Apply</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
 </body>
 </html>
